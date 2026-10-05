@@ -27,26 +27,17 @@ contract NFTBazaarTest is Test {
         bazaar = new NFTBazaar(feeRecipient, feeBps);
     }
 
-    // Set up Tests
+    /* constructor */
 
-    function test_RevertWhen_FeeBpsGreaterThanMaxFeeBps() public {
-        uint16 feeBpsGreaterThanMax_ = bazaar.MAX_FEE_BPS() + 1;
-        vm.expectRevert("Fee Base Points cannot be greater than 10%.");
-        new NFTBazaar(feeRecipient, feeBpsGreaterThanMax_);
-    }
+    // Positive cases
 
-    function test_RevertWhen_FeeRecipientIsAddressZero() public {
-        vm.expectRevert("feeRecipient cannot be address Zero.");
-        new NFTBazaar(address(0), feeBps);
-    }
-
-    function test_SetUpInitsCorrectly() public view {
+    function test_Constructor_SetsInitialState() public view {
         assertEq(bazaar.owner(), deployer);
         assertEq(bazaar.feeRecipient(), feeRecipient);
         assertEq(bazaar.feeBps(), feeBps);
     }
 
-    function test_SetUpInitsCorrectlyWithMaxFee() public {
+    function test_Constructor_AcceptsMaxFee() public {
         uint16 maxFee_ = bazaar.MAX_FEE_BPS();   // leer la constante antes del prank
 
         vm.prank(deployer);
@@ -55,7 +46,9 @@ contract NFTBazaarTest is Test {
         assertEq(bazaarMax_.feeBps(), maxFee_);
     }
 
-    function test_EmitsFeeSet() public {
+    // Events
+
+    function test_Constructor_EmitsFeeSet() public {
         vm.expectEmit(false, false, false, true);
         emit FeeSet(feeBps);
 
@@ -63,18 +56,73 @@ contract NFTBazaarTest is Test {
         new NFTBazaar(feeRecipient, feeBps);
     }
 
-    function test_EmitsFeeRecipientSet() public {
+    function test_Constructor_EmitsFeeRecipientSet() public {
         vm.expectEmit(true, false, false, true);
         emit FeeRecipientSet(feeRecipient);
 
         vm.prank(deployer);
         new NFTBazaar(feeRecipient, feeBps);
     }
+    
+    // Reverts
 
-    // setFee
+    function test_Constructor_RevertWhen_FeeAboveMax() public {
+        uint16 feeBpsGreaterThanMax_ = bazaar.MAX_FEE_BPS() + 1;
+        vm.expectRevert("Fee Base Points cannot be greater than 10%.");
+        new NFTBazaar(feeRecipient, feeBpsGreaterThanMax_);
+    }
 
-    // failes when no owner
-    function test_RevertWhen_SetFeeCallerNotOwner() public {
+    function test_Constructor_RevertWhen_FeeRecipientIsZeroAddress() public {
+        vm.expectRevert("feeRecipient cannot be address Zero.");
+        new NFTBazaar(address(0), feeBps);
+    }
+
+    /* setFee */
+
+    // Positive cases
+
+    function test_SetFee_UpdatesFee() public {
+        uint16 feeBps_ = 300;
+
+        vm.prank(deployer);
+        bazaar.setFee(feeBps_);
+
+        assertEq(bazaar.feeBps(), feeBps_);
+    }
+
+        function test_SetFee_AcceptsZero() public {
+        uint16 zeroFeeBps_ = 0;
+
+        vm.prank(deployer);
+        bazaar.setFee(zeroFeeBps_);
+
+        assertEq(bazaar.feeBps(), zeroFeeBps_);
+    }
+
+    function test_SetFee_AcceptsMax() public {
+        uint16 feeBps_ = bazaar.MAX_FEE_BPS();
+
+        vm.prank(deployer);
+        bazaar.setFee(feeBps_);
+
+        assertEq(bazaar.feeBps(), feeBps_);
+    }
+
+    // Events
+
+    function test_SetFee_EmitsFeeSet() public {
+        uint16 feeBps_ = 300;
+
+        vm.expectEmit(false, false, false, true);
+        emit FeeSet(feeBps_);
+
+        vm.prank(deployer);
+        bazaar.setFee(feeBps_);
+    }
+
+    // Reverts
+
+    function test_SetFee_RevertWhen_CallerNotOwner() public {
         uint16 feeBps_ = 300;
         
         vm.expectRevert(
@@ -85,10 +133,8 @@ contract NFTBazaarTest is Test {
 
         assertEq(bazaar.feeBps(), feeBps);
     }
-
-    // failes when > max_fee
-
-    function test_RevertWhen_SetFeeFeeBpsGreaterThanMaxFeeBps() public {
+    
+    function test_SetFee_RevertWhen_FeeAboveMax() public {
         uint16 feeBpsGreaterThanMax_ = bazaar.MAX_FEE_BPS() + 1;
         vm.expectRevert("Fee Base Points cannot be greater than 10%.");
         vm.prank(deployer);
@@ -97,46 +143,9 @@ contract NFTBazaarTest is Test {
         assertEq(bazaar.feeBps(), feeBps);
     }
 
-    // green
-    function test_SetFee() public {
-        uint16 feeBps_ = 300;
+    // Fuzz
 
-        vm.prank(deployer);
-        bazaar.setFee(feeBps_);
-
-        assertEq(bazaar.feeBps(), feeBps_);
-    }
-
-    function test_SetFeeWorksWithMax() public {
-        uint16 feeBps_ = bazaar.MAX_FEE_BPS();
-
-        vm.prank(deployer);
-        bazaar.setFee(feeBps_);
-
-        assertEq(bazaar.feeBps(), feeBps_);
-    }
-
-    // green - emits event
-    function test_SetFeeEmitsFeeSet() public {
-        uint16 feeBps_ = 300;
-
-        vm.expectEmit(false, false, false, true);
-        emit FeeSet(feeBps_);
-
-        vm.prank(deployer);
-        bazaar.setFee(feeBps_);
-    }
-
-    function test_SetFeeZeroFeeBps() public {
-        uint16 zeroFeeBps_ = 0;
-
-        vm.prank(deployer);
-        bazaar.setFee(zeroFeeBps_);
-
-        assertEq(bazaar.feeBps(), zeroFeeBps_);
-    }
-
-    function testFuzz_SetFee(uint16 feeBps_) public {
+    function testFuzz_SetFee_AcceptsFeeUpToMax(uint16 feeBps_) public {
         uint256 max = bazaar.MAX_FEE_BPS();
         feeBps_ = uint16(bound(feeBps_, 0, max));
         
@@ -149,7 +158,7 @@ contract NFTBazaarTest is Test {
         assertEq(bazaar.feeBps(), feeBps_);
     }
 
-    function testFuzz_SetFee_RevertWhen_FeeBpsGreaterThanMax(uint16 feeBps_) public {
+    function testFuzz_SetFee_RevertWhen_FeeAboveMax(uint16 feeBps_) public {
         uint256 max = bazaar.MAX_FEE_BPS();
         feeBps_ = uint16(bound(feeBps_, max + 1, type(uint16).max));
 
@@ -160,32 +169,11 @@ contract NFTBazaarTest is Test {
         assertEq(bazaar.feeBps(), feeBps);
     }
 
-    // setFeeRecipient
+    /* setFeeRecipient */
 
-    // failes when no owner
-    function test_RevertWhen_SetFeeRecipientCallerNotOwner() public {
-        address newFeeRecipient_ = makeAddr("newFeeRecipient");
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomUser)
-        );
+    // Positive cases
 
-        vm.prank(randomUser);
-        bazaar.setFeeRecipient(newFeeRecipient_);
-
-        assertEq(bazaar.feeRecipient(), feeRecipient);
-    }
-
-    // failes when ==  address 0
-    function test_RevertWhen_SetFeeRecipientFeeRecipientIsAddressZero() public {
-        vm.expectRevert("feeRecipient cannot be address Zero.");
-        vm.prank(deployer);
-        bazaar.setFeeRecipient(address(0));
-
-        assertEq(bazaar.feeRecipient(), feeRecipient);
-    }
-
-    // green
-    function test_SetFeeRecipient() public {
+    function test_SetFeeRecipient_UpdatesRecipient() public {
         address newFeeRecipient_ = makeAddr("newFeeRecipient");
         vm.prank(deployer);
         bazaar.setFeeRecipient(newFeeRecipient_);
@@ -193,8 +181,9 @@ contract NFTBazaarTest is Test {
         assertEq(bazaar.feeRecipient(), newFeeRecipient_);
     }
 
-    // green - emits event
-    function test_SetFeeRecipientEmitsFeeRecipientSet() public {
+    // Events
+
+    function test_SetFeeRecipient_EmitsFeeRecipientSet() public {
         address newFeeRecipient_ = makeAddr("newFeeRecipient");
         vm.expectEmit(true, false, false, true);
         emit FeeRecipientSet(newFeeRecipient_);
@@ -203,42 +192,33 @@ contract NFTBazaarTest is Test {
         bazaar.setFeeRecipient(newFeeRecipient_);
     }
 
-    // setAllowedToken
+    // Reverts
 
-    // address == 0 reverts with true
-    function test_RevertWhen_SetAllowedTokenWithAllowedToTrueAndTokenIsAddressZero() public {
-        vm.expectRevert("Address Zero reserved to ETH.");
-        vm.prank(deployer);
-        bazaar.setAllowedToken(address(0), true);
-
-        assertFalse(bazaar.allowedToken(address(0)));
-    }
-
-    // address == 0 reverts with false
-    function test_RevertWhen_SetAllowedTokenWithAllowedToFalseAndTokenIsAddressZero() public {
-        vm.expectRevert("Address Zero reserved to ETH.");
-        vm.prank(deployer);
-        bazaar.setAllowedToken(address(0), false);
-
-        assertFalse(bazaar.allowedToken(address(0)));
-    }
-
-
-    // no owner reverts
-    function test_RevertWhen_SetAllowedTokenCallerNotOwner() public {
-        address token_ = makeAddr("token");
-
+    function test_SetFeeRecipient_RevertWhen_CallerNotOwner() public {
+        address newFeeRecipient_ = makeAddr("newFeeRecipient");
         vm.expectRevert(
             abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomUser)
         );
-        vm.prank(randomUser);
-        bazaar.setAllowedToken(token_, true);
 
-        assertFalse(bazaar.allowedToken(token_));
+        vm.prank(randomUser);
+        bazaar.setFeeRecipient(newFeeRecipient_);
+
+        assertEq(bazaar.feeRecipient(), feeRecipient);
     }
 
-    // green test con true
-    function test_SetAllowedTokenWithAllowedToTrue() public { 
+    function test_SetFeeRecipient_RevertWhen_RecipientIsZeroAddress() public {
+        vm.expectRevert("feeRecipient cannot be address Zero.");
+        vm.prank(deployer);
+        bazaar.setFeeRecipient(address(0));
+
+        assertEq(bazaar.feeRecipient(), feeRecipient);
+    }
+
+    /* setAllowedToken */
+
+    // Positive cases
+
+    function test_SetAllowedToken_EnablesToken() public { 
         address token_ = makeAddr("token");
         assertFalse(bazaar.allowedToken(token_));
 
@@ -248,26 +228,24 @@ contract NFTBazaarTest is Test {
         assertTrue(bazaar.allowedToken(token_));
     }
 
-    // green test con false
-    function test_SetAllowedTokenWithAllowedToFalse() public {
-        // First, we activate the allowance to the token
+    function test_SetAllowedToken_DisablesToken() public {
         address token_ = makeAddr("token");
-
         vm.startPrank(deployer);
 
+        // First, enable token
         bazaar.setAllowedToken(token_, true);
-
-        // Then, we verify it can be desactivated
         assertTrue(bazaar.allowedToken(token_));
 
+        // Then, verify it can be desactivated
         bazaar.setAllowedToken(token_, false);
-
         assertFalse(bazaar.allowedToken(token_)); 
 
         vm.stopPrank();
     }
 
-    function test_SetAllowedTokenWithAllowedToTrueEmitsAllowedTokenSet() public {
+    // Events
+
+    function test_SetAllowedToken_EmitsAllowedTokenSet_WhenEnabling() public {
         address token_ = makeAddr("token");
 
         vm.expectEmit(true, false, false, true);
@@ -277,7 +255,7 @@ contract NFTBazaarTest is Test {
         bazaar.setAllowedToken(token_, true);
     }
 
-    function test_SetAllowedTokenWithAllowedToFalseEmitsAllowedTokenSet() public {
+    function test_SetAllowedToken_EmitsAllowedTokenSet_WhenDisabling() public {
         address token_ = makeAddr("token");
 
         vm.startPrank(deployer);
@@ -290,16 +268,52 @@ contract NFTBazaarTest is Test {
         vm.stopPrank();
     }
 
-    // Ownable2Step
+    // Reverts
+
+    function test_SetAllowedToken_RevertWhen_EnablingZeroAddress() public {
+        vm.expectRevert("Address Zero reserved to ETH.");
+        vm.prank(deployer);
+        bazaar.setAllowedToken(address(0), true);
+
+        assertFalse(bazaar.allowedToken(address(0)));
+    }
+
+    // address == 0 reverts with false
+    function test_SetAllowedToken_RevertWhen_DisablingZeroAddress() public {
+        vm.expectRevert("Address Zero reserved to ETH.");
+        vm.prank(deployer);
+        bazaar.setAllowedToken(address(0), false);
+
+        assertFalse(bazaar.allowedToken(address(0)));
+    }
+
+    function test_SetAllowedToken_RevertWhen_CallerNotOwner() public {
+        address token_ = makeAddr("token");
+
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomUser)
+        );
+        vm.prank(randomUser);
+        bazaar.setAllowedToken(token_, true);
+
+        assertFalse(bazaar.allowedToken(token_));
+    }
+    
+    /* Ownable2Step */
+
+    // Positive cases
+
     function test_TransferOwnership_KeepsOwnerUntilAccepted() public {
         address newOwner_ = makeAddr("newOwner");
 
         vm.prank(deployer);
         bazaar.transferOwnership(newOwner_);
 
+        // The transfer is only started: nothing has changed yet
         assertEq(bazaar.pendingOwner(), newOwner_);
         assertEq(bazaar.owner(), deployer);
         
+        // The pending owner still cannot administer
         uint16 feeBps_ = 300;
         vm.expectRevert(
             abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, newOwner_)
@@ -317,12 +331,22 @@ contract NFTBazaarTest is Test {
         vm.prank(newOwner_);
         bazaar.acceptOwnership();
         
+         // The new owner can administer
         uint16 feeBps_ = 300;
         vm.prank(newOwner_);
         bazaar.setFee(feeBps_);
         assertEq(bazaar.feeBps(), feeBps_);
+
+        // The previous owner no longer can
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, deployer)
+        );
+        vm.prank(deployer);
+        bazaar.setFee(feeBps_);
     }
     
+    // Reverts
+
     function test_RevertWhen_AcceptOwnershipCallerNotPendingOwner() public {
         address newOwner_ = makeAddr("newOwner");
 
