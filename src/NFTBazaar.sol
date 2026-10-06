@@ -42,6 +42,8 @@ contract NFTBazaar is Ownable2Step {
 
     function setAllowedToken(address token_, bool allowed_) external onlyOwner {
         require(token_ != address(0), "Address Zero reserved to ETH.");
+        require(!allowed_ || token_.code.length > 0, "Not a contract.");
+
         allowedToken[token_] = allowed_;
 
         emit AllowedTokenSet(token_, allowed_);
