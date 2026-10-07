@@ -76,22 +76,17 @@ contract NFTBazaar is Ownable2Step {
     }
 
     function cancelListing(address nft_, uint256 tokenId_) external {
-        address listingSeller_ = listing[nft_][tokenId_].seller;
-        require(listingSeller_ != address(0), "Listing does not exist.");
-        require(listingSeller_ == msg.sender, "Not listing's seller.");
+        _getSellerListing(nft_, tokenId_);
 
         delete listing[nft_][tokenId_];
 
-        emit NFTCancelled(listingSeller_, nft_, tokenId_);
+        emit NFTCancelled(msg.sender, nft_, tokenId_);
     }
 
     function updatePrice(address nft_, uint256 tokenId_, uint256 newPrice_) external {
-        address listingSeller_ = listing[nft_][tokenId_].seller;
-        require(listingSeller_ != address(0), "Listing does not exist.");
-        require(listingSeller_ == msg.sender, "Not listing's seller.");
+        Listing storage listing_ = _getSellerListing(nft_, tokenId_);
         require(newPrice_ > 0, "New price cannot be 0.");
 
-        Listing storage listing_ = listing[nft_][tokenId_];
         uint256 oldPrice_ = listing_.startPrice;
 
         listing_.startPrice = newPrice_;
@@ -112,5 +107,11 @@ contract NFTBazaar is Ownable2Step {
         feeRecipient = feeRecipient_;
 
         emit FeeRecipientSet(feeRecipient_);
+    }
+
+    function _getSellerListing(address nft_, uint256 tokenId_) internal view returns (Listing storage listing_){
+        listing_ = listing[nft_][tokenId_];
+        require(listing_.seller != address(0), "Listing does not exist.");
+        require(listing_.seller == msg.sender, "Not listing's seller.");
     }
 }
