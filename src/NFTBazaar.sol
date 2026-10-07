@@ -114,4 +114,10 @@ contract NFTBazaar is Ownable2Step {
         require(listing_.seller != address(0), "Listing does not exist.");
         require(listing_.seller == msg.sender, "Not listing's seller.");
     }
+
+    function _computeSplit(address nft_, uint256 tokenId_, uint256 price_) internal view returns (uint256 fee, address royaltyReceiver, uint256 royalty, uint256 proceeds) {
+        fee = (price_ * feeBps) / 10_000;
+        proceeds = price_ - fee;
+        return (fee, address(0), 0, proceeds);
+    }
 }
