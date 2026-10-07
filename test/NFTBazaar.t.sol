@@ -29,7 +29,7 @@ contract NFTBazaarTest is Test {
     event AllowedTokenSet(address indexed token_, bool allowed_);
     event NFTListed(address indexed seller, address indexed nft, uint256 indexed tokenId, address paymentToken, uint256 price, uint256 endTime);
     event NFTCancelled(address indexed seller, address indexed nft, uint256 indexed tokenId);
-    event NFTSold(address indexed buyer, address indexed seller, address indexed nftAddress, uint256 tokenId, uint256 price);
+    event NFTListingUpdated(address indexed seller, address indexed nft, uint256 indexed tokenId, uint256 oldPrice, uint256 newPrice);
 
     function setUp() public {
         deployer = makeAddr("deployer");
@@ -699,7 +699,91 @@ contract NFTBazaarTest is Test {
         vm.prank(newOwner_);
         bazaar.cancelListing(address(nft), tokenId);
     }
-    
+
+    /* updatePrice */
+
+    // Positive cases
+
+    function test_UpdatePrice_UpdatesPrice() public {
+        _listDefault();
+        uint256 newPrice_ = DEFAULT_PRICE * 2;
+
+        vm.prank(seller);
+        bazaar.updatePrice(address(nft), tokenId, newPrice_);
+
+        _assertListing(seller, address(0), newPrice_, INITIAL_TIMESTAMP, INITIAL_TIMESTAMP + LISTING_DURATION);
+    }
+
+    function test_UpdatePrice_KeepsStartTimeAndEndTime() public {
+        _listDefault();
+        uint256 newPrice_ = DEFAULT_PRICE * 2;
+
+        vm.warp((INITIAL_TIMESTAMP + LISTING_DURATION) / 2);
+        vm.prank(seller);
+        bazaar.updatePrice(address(nft), tokenId, newPrice_);
+
+        _assertListing(seller, address(0), newPrice_, INITIAL_TIMESTAMP, INITIAL_TIMESTAMP + LISTING_DURATION);
+    }
+
+    function test_UpdatePrice_Succeeds_WhenListingExpired() public {
+        _listDefault();
+        uint256 newPrice_ = DEFAULT_PRICE * 2;
+
+        vm.warp(INITIAL_TIMESTAMP + LISTING_DURATION + 1);
+        vm.prank(seller);
+        bazaar.updatePrice(address(nft), tokenId, newPrice_);
+
+        _assertListing(seller, address(0), newPrice_, INITIAL_TIMESTAMP, INITIAL_TIMESTAMP + LISTING_DURATION);
+    }
+
+    // Fuzz
+
+    function testFuzz_UpdatePrice_UpdatesPrice_WithAnyPrice(uint256 newPrice_) public {
+        newPrice_ = bound(newPrice_, 1, type(uint256).max);
+        _listDefault();
+
+        vm.prank(seller);
+        bazaar.updatePrice(address(nft), tokenId, newPrice_);
+
+        _assertListing(seller, address(0), newPrice_, INITIAL_TIMESTAMP, INITIAL_TIMESTAMP + LISTING_DURATION);
+    }
+
+    // Events
+
+    function test_UpdatePrice_EmitsNFTListingUpdated() public {
+        _listDefault();
+        uint256 newPrice_ = DEFAULT_PRICE * 2;
+        vm.expectEmit(true, true, true, true);
+        emit NFTListingUpdated(seller, address(nft), tokenId, DEFAULT_PRICE, newPrice_);
+
+        vm.prank(seller);
+        bazaar.updatePrice(address(nft), tokenId, newPrice_);
+    }
+
+    // Reverts
+
+    function test_UpdatePrice_RevertWhen_ListingDoesNotExist() public {
+        vm.expectRevert("Listing does not exist.");
+        vm.prank(seller);
+        bazaar.updatePrice(address(nft), tokenId, DEFAULT_PRICE);
+    }
+
+    function test_UpdatePrice_RevertWhen_CallerNotSeller() public {
+        _listDefault();
+        uint256 newPrice_ = DEFAULT_PRICE * 2;
+        vm.expectRevert("Not listing's seller.");
+        vm.prank(randomUser);
+        bazaar.updatePrice(address(nft), tokenId, newPrice_);
+    }
+
+    function test_UpdatePrice_RevertWhen_PriceIsZero() public {
+        _listDefault();
+        uint256 newPrice_ = 0;
+        vm.expectRevert("New price cannot be 0.");
+        vm.prank(seller);
+        bazaar.updatePrice(address(nft), tokenId, newPrice_);
+    }
+
     /* Ownable2Step */
 
     // Positive cases

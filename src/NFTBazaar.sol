@@ -24,13 +24,12 @@ contract NFTBazaar is Ownable2Step {
     mapping(address => bool) public allowedToken;
     mapping(address => uint256) public pendingEth;
 
-    event FeeSet(uint16 feeBps_);
-    event FeeRecipientSet(address indexed feeRecipient_);
-    event AllowedTokenSet(address indexed token_, bool allowed_);
+    event FeeSet(uint16 feeBps);
+    event FeeRecipientSet(address indexed feeRecipient);
+    event AllowedTokenSet(address indexed token, bool allowed);
     event NFTListed(address indexed seller, address indexed nft, uint256 indexed tokenId, address paymentToken, uint256 price, uint256 endTime);
     event NFTCancelled(address indexed seller, address indexed nft, uint256 indexed tokenId);
-    
-    event NFTSold(address indexed buyer, address indexed seller, address indexed nftAddress, uint256 tokenId, uint256 price);
+    event NFTListingUpdated(address indexed seller, address indexed nft, uint256 indexed tokenId, uint256 oldPrice, uint256 newPrice);
 
     constructor(address feeRecipient_, uint16 feeBps_) Ownable(msg.sender) {
         _setFee(feeBps_);
@@ -84,6 +83,21 @@ contract NFTBazaar is Ownable2Step {
         delete listing[nft_][tokenId_];
 
         emit NFTCancelled(listingSeller_, nft_, tokenId_);
+    }
+
+    function updatePrice(address nft_, uint256 tokenId_, uint256 newPrice_) external {
+        address listingSeller_ = listing[nft_][tokenId_].seller;
+        require(listingSeller_ != address(0), "Listing does not exist.");
+        require(listingSeller_ == msg.sender, "Not listing's seller.");
+        require(newPrice_ > 0, "New price cannot be 0.");
+
+        Listing storage listing_ = listing[nft_][tokenId_];
+        uint256 oldPrice_ = listing_.startPrice;
+
+        listing_.startPrice = newPrice_;
+        listing_.endPrice = newPrice_;
+
+        emit NFTListingUpdated(msg.sender, nft_, tokenId_, oldPrice_, newPrice_);
     }
 
     function _setFee(uint16 feeBps_) internal {
