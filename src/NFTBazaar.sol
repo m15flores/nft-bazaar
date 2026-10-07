@@ -3,6 +3,7 @@
 pragma solidity 0.8.34;
 
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 contract NFTBazaar is Ownable2Step {
 
@@ -26,6 +27,10 @@ contract NFTBazaar is Ownable2Step {
     event FeeSet(uint16 feeBps_);
     event FeeRecipientSet(address indexed feeRecipient_);
     event AllowedTokenSet(address indexed token_, bool allowed_);
+    event NFTListed(address indexed seller, address indexed nft, uint256 indexed tokenId, address paymentToken, uint256 price, uint256 endTime);
+    event NFTCancelled(address indexed seller, address indexed nft, uint256 indexed tokenId);
+    
+    event NFTSold(address indexed buyer, address indexed seller, address indexed nftAddress, uint256 tokenId, uint256 price);
 
     constructor(address feeRecipient_, uint16 feeBps_) Ownable(msg.sender) {
         _setFee(feeBps_);
@@ -47,6 +52,38 @@ contract NFTBazaar is Ownable2Step {
         allowedToken[token_] = allowed_;
 
         emit AllowedTokenSet(token_, allowed_);
+    }
+
+    function listNFT(address nft_, uint256 tokenId_, address paymentToken_, uint256 price_, uint256 endTime_) external {
+        require(price_ > 0, "Price cannot be 0.");
+        address owner_ = IERC721(nft_).ownerOf(tokenId_);
+        require(owner_ == msg.sender, "You are not the owner of the NFT.");
+        require(IERC721(nft_).getApproved(tokenId_) == address(this) || IERC721(nft_).isApprovedForAll(owner_, address(this)), "The contract has not been approved.");
+        require(paymentToken_ == address(0) || allowedToken[paymentToken_], "This payment method is not allowed.");
+        require(endTime_ == 0 || endTime_ > block.timestamp, "End time not valid.");
+
+        Listing memory listing_ = Listing({
+            seller: msg.sender,
+            paymentToken: paymentToken_,
+            startPrice: price_,
+            endPrice: price_,
+            startTime: block.timestamp,
+            endTime: endTime_
+        });
+
+        listing[nft_][tokenId_] = listing_;
+
+        emit NFTListed(msg.sender, nft_, tokenId_, paymentToken_, price_, endTime_);
+    }
+
+    function cancelListing(address nft_, uint256 tokenId_) external {
+        address listingSeller_ = listing[nft_][tokenId_].seller;
+        require(listingSeller_ != address(0), "Listing does not exist.");
+        require(listingSeller_ == msg.sender, "Not listing's seller.");
+
+        delete listing[nft_][tokenId_];
+
+        emit NFTCancelled(listingSeller_, nft_, tokenId_);
     }
 
     function _setFee(uint16 feeBps_) internal {
