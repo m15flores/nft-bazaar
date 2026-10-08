@@ -4,6 +4,8 @@ pragma solidity 0.8.34;
 
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/interfaces/IERC2981.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 
 contract NFTBazaar is Ownable2Step {
 
@@ -117,7 +119,12 @@ contract NFTBazaar is Ownable2Step {
 
     function _computeSplit(address nft_, uint256 tokenId_, uint256 price_) internal view returns (uint256 fee, address royaltyReceiver, uint256 royalty, uint256 proceeds) {
         fee = (price_ * feeBps) / 10_000;
-        proceeds = price_ - fee;
-        return (fee, address(0), 0, proceeds);
+        
+        if(ERC165Checker.supportsInterface(nft_, type(IERC2981).interfaceId)) {
+            (royaltyReceiver, royalty) = IERC2981(nft_).royaltyInfo(tokenId_, price_);
+            if(royaltyReceiver == address(0)) royalty = 0;
+        }
+        require(royalty <= price_ - fee, "Fee plus royalty exceed price.");
+        proceeds = price_ - fee - royalty;
     }
 }
