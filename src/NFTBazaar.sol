@@ -36,6 +36,7 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
     event NFTCancelled(address indexed seller, address indexed nft, uint256 indexed tokenId);
     event NFTListingUpdated(address indexed seller, address indexed nft, uint256 indexed tokenId, uint256 oldPrice, uint256 newPrice);
     event NFTSold(address indexed buyer, address indexed seller, address indexed nft, uint256 tokenId, address paymentToken, uint256 price);
+    event Withdrawn(address indexed account, uint256 amount);
 
     constructor(address feeRecipient_, uint16 feeBps_) Ownable(msg.sender) {
         _setFee(feeBps_);
@@ -111,6 +112,18 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
         delete listing[nft_][tokenId_];
 
         _settle(nft_, tokenId_, listing_.seller, msg.sender, listing_.paymentToken, listing_.startPrice);
+    }
+
+    function withdraw() external nonReentrant {
+        uint256 amount_ = pendingEth[msg.sender];
+        require(amount_ > 0, "Nothing to withdraw.");
+
+        pendingEth[msg.sender] = 0;
+
+        (bool success, ) = msg.sender.call{value: amount_}("");
+        require(success, "Withdraw failed.");
+
+        emit Withdrawn(msg.sender, amount_);
     }
 
     function _setFee(uint16 feeBps_) internal {
