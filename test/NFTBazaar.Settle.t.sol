@@ -241,7 +241,7 @@ contract NFTBazaarSettleTest is Test {
         uint256 maxFeeBps_ = harness.MAX_FEE_BPS();
         price_ = bound(price_, 0, type(uint128).max);
         feeBps_ = uint16(bound(feeBps_, 0, maxFeeBps_));
-        royaltyBps_ = uint96(bound(royaltyBps_, 0, 10_000 - feeBps_));
+        royaltyBps_ = uint96(bound(royaltyBps_, 0, harness.BPS_DENOMINATOR() - feeBps_));
 
         vm.prank(deployer);
         harness.setFee(feeBps_);

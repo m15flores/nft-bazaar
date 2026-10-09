@@ -6,8 +6,9 @@ import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract NFTBazaar is Ownable2Step {
+contract NFTBazaar is Ownable2Step, ReentrancyGuard {
 
     struct Listing {
         address seller;
@@ -21,10 +22,12 @@ contract NFTBazaar is Ownable2Step {
     mapping(address => mapping(uint256 => Listing)) public listing;
 
     uint16 public feeBps;
-    uint16 public constant MAX_FEE_BPS = 1000;
     address public feeRecipient;
     mapping(address => bool) public allowedToken;
     mapping(address => uint256) public pendingEth;
+
+    uint16 public constant MAX_FEE_BPS = 1000;
+    uint256 public constant BPS_DENOMINATOR = 10_000;
 
     event FeeSet(uint16 feeBps);
     event FeeRecipientSet(address indexed feeRecipient);
@@ -96,6 +99,18 @@ contract NFTBazaar is Ownable2Step {
         listing_.endPrice = newPrice_;
 
         emit NFTListingUpdated(msg.sender, nft_, tokenId_, oldPrice_, newPrice_);
+    }
+
+    function buyNFT(address nft_, uint256 tokenId_) external payable nonReentrant {
+        Listing memory listing_ = listing[nft_][tokenId_];
+        require(listing_.seller != address(0), "Listing does not exist.");
+        require(listing_.endTime == 0 || block.timestamp < listing_.endTime, "Listing expired.");
+        require(listing_.paymentToken == address(0), "ERC20 payments not supported yet.");
+        require(msg.value == listing_.startPrice, "Incorrect payment.");
+
+        delete listing[nft_][tokenId_];
+
+        _settle(nft_, tokenId_, listing_.seller, msg.sender, listing_.paymentToken, listing_.startPrice);
     }
 
     function _setFee(uint16 feeBps_) internal {

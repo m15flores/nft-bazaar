@@ -100,8 +100,8 @@ contract NFTBazaarSplitTest is Test {
         // fee is exactly floor(price * bps / 10_000)
         assertEq(fee_ + proceeds_, price_);
         assertLe(fee_, price_);
-        assertLe(fee_ * 10_000, price_ * feeBps_);
-        assertLt(price_ * feeBps_, (fee_ + 1) * 10_000);
+        assertLe(fee_ * harness.BPS_DENOMINATOR(), price_ * feeBps_);
+        assertLt(price_ * feeBps_, (fee_ + 1) * harness.BPS_DENOMINATOR());
     }
 
     function test_ComputeSplit_RevertWhen_PriceTimesFeeOverflows() public {
@@ -177,7 +177,7 @@ contract NFTBazaarSplitTest is Test {
         uint16 maxFeeBps_ = harness.MAX_FEE_BPS();
         price_ = bound(price_, 0, type(uint128).max);
         feeBps_ = uint16(bound(feeBps_, 0, maxFeeBps_));
-        royaltyBps_ = uint96(bound(royaltyBps_, 0, 10_000 - feeBps_));
+        royaltyBps_ = uint96(bound(royaltyBps_, 0, harness.BPS_DENOMINATOR() - feeBps_));
 
         vm.prank(deployer);
         harness.setFee(feeBps_);
@@ -187,7 +187,7 @@ contract NFTBazaarSplitTest is Test {
 
         assertEq(fee + royalty + proceeds, price_);
         assertEq(receiver, royaltyReceiver);
-        assertEq(royalty, (price_ * royaltyBps_) / 10_000);
+        assertEq(royalty, (price_ * royaltyBps_) / harness.BPS_DENOMINATOR());
     }
 
     function test_ComputeSplit_RevertWhen_FeePlusRoyaltyExceedsPrice() public {
