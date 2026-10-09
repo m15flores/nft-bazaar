@@ -32,6 +32,7 @@ contract NFTBazaar is Ownable2Step {
     event NFTListed(address indexed seller, address indexed nft, uint256 indexed tokenId, address paymentToken, uint256 price, uint256 endTime);
     event NFTCancelled(address indexed seller, address indexed nft, uint256 indexed tokenId);
     event NFTListingUpdated(address indexed seller, address indexed nft, uint256 indexed tokenId, uint256 oldPrice, uint256 newPrice);
+    event NFTSold(address indexed buyer, address indexed seller, address indexed nft, uint256 tokenId, address paymentToken, uint256 price);
 
     constructor(address feeRecipient_, uint16 feeBps_) Ownable(msg.sender) {
         _setFee(feeBps_);
@@ -126,5 +127,17 @@ contract NFTBazaar is Ownable2Step {
         }
         require(royalty <= price_ - fee, "Fee plus royalty exceed price.");
         proceeds = price_ - fee - royalty;
+    }
+
+    function _settle(address nft_, uint256 tokenId_, address seller_, address buyer_, address paymentToken_, uint256 price_) internal {
+        (uint256 fee, address royaltyReceiver, uint256 royalty, uint256 proceeds) = _computeSplit(nft_, tokenId_, price_);
+        
+        pendingEth[seller_] += proceeds;
+        pendingEth[feeRecipient] += fee;
+        if(royalty > 0) pendingEth[royaltyReceiver] += royalty;
+
+        IERC721(nft_).safeTransferFrom(seller_, buyer_, tokenId_);
+
+        emit NFTSold(buyer_, seller_, nft_, tokenId_, paymentToken_, price_);
     }
 }

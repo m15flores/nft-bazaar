@@ -162,7 +162,7 @@ contract NFTBazaarSplitTest is Test {
 
     function test_ComputeSplit_RoyaltyIsZero_WhenReceiverIsZeroAddress() public {
         uint256 price_ = 1 ether;
-        uint256 royalty = 0.05 ether; // not zero and below the limit
+        uint256 royalty = 0.05 ether; // not zero and below price - fee
         customNft.setRoyalty(address(0), royalty);
 
         (uint256 fee_, address royaltyReceiver_, uint256 royalty_, uint256 proceeds_) = harness.computeSplit(address(customNft), tokenId, price_);
