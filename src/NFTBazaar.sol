@@ -11,7 +11,6 @@ import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract NFTBazaar is Ownable2Step, ReentrancyGuard {
-    
     using SafeERC20 for IERC20;
 
     struct Listing {
@@ -36,10 +35,26 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
     event FeeSet(uint16 feeBps);
     event FeeRecipientSet(address indexed feeRecipient);
     event AllowedTokenSet(address indexed token, bool allowed);
-    event NFTListed(address indexed seller, address indexed nft, uint256 indexed tokenId, address paymentToken, uint256 price, uint256 endTime);
+    event NFTListed(
+        address indexed seller,
+        address indexed nft,
+        uint256 indexed tokenId,
+        address paymentToken,
+        uint256 price,
+        uint256 endTime
+    );
     event NFTCancelled(address indexed seller, address indexed nft, uint256 indexed tokenId);
-    event NFTListingUpdated(address indexed seller, address indexed nft, uint256 indexed tokenId, uint256 oldPrice, uint256 newPrice);
-    event NFTSold(address indexed buyer, address indexed seller, address indexed nft, uint256 tokenId, address paymentToken, uint256 price);
+    event NFTListingUpdated(
+        address indexed seller, address indexed nft, uint256 indexed tokenId, uint256 oldPrice, uint256 newPrice
+    );
+    event NFTSold(
+        address indexed buyer,
+        address indexed seller,
+        address indexed nft,
+        uint256 tokenId,
+        address paymentToken,
+        uint256 price
+    );
     event Withdrawn(address indexed account, uint256 amount);
 
     constructor(address feeRecipient_, uint16 feeBps_) Ownable(msg.sender) {
@@ -68,7 +83,11 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
         require(price_ > 0, "Price cannot be 0.");
         address owner_ = IERC721(nft_).ownerOf(tokenId_);
         require(owner_ == msg.sender, "You are not the owner of the NFT.");
-        require(IERC721(nft_).getApproved(tokenId_) == address(this) || IERC721(nft_).isApprovedForAll(owner_, address(this)), "The contract has not been approved.");
+        require(
+            IERC721(nft_).getApproved(tokenId_) == address(this)
+                || IERC721(nft_).isApprovedForAll(owner_, address(this)),
+            "The contract has not been approved."
+        );
         require(paymentToken_ == address(0) || allowedToken[paymentToken_], "This payment method is not allowed.");
         require(endTime_ == 0 || endTime_ > block.timestamp, "End time not valid.");
 
@@ -106,12 +125,13 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
         emit NFTListingUpdated(msg.sender, nft_, tokenId_, oldPrice_, newPrice_);
     }
 
-    function buyNFT(address nft_, uint256 tokenId_) external payable nonReentrant {
+    function buyNFT(address nft_, uint256 tokenId_, uint256 maxPrice_) external payable nonReentrant {
         Listing memory listing_ = listing[nft_][tokenId_];
         require(listing_.seller != address(0), "Listing does not exist.");
         require(listing_.endTime == 0 || block.timestamp < listing_.endTime, "Listing expired.");
+        require(listing_.startPrice <= maxPrice_, "Price above maximum.");
 
-        if(listing_.paymentToken == address(0)) {
+        if (listing_.paymentToken == address(0)) {
             require(msg.value == listing_.startPrice, "Incorrect payment.");
         } else {
             require(allowedToken[listing_.paymentToken], "Payment token not allowed.");
@@ -129,7 +149,7 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
 
         pendingEth[msg.sender] = 0;
 
-        (bool success, ) = msg.sender.call{value: amount_}("");
+        (bool success,) = msg.sender.call{value: amount_}("");
         require(success, "Withdraw failed.");
 
         emit Withdrawn(msg.sender, amount_);
@@ -149,28 +169,40 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
         emit FeeRecipientSet(feeRecipient_);
     }
 
-    function _getSellerListing(address nft_, uint256 tokenId_) internal view returns (Listing storage listing_){
+    function _getSellerListing(address nft_, uint256 tokenId_) internal view returns (Listing storage listing_) {
         listing_ = listing[nft_][tokenId_];
         require(listing_.seller != address(0), "Listing does not exist.");
         require(listing_.seller == msg.sender, "Not listing's seller.");
     }
 
-    function _computeSplit(address nft_, uint256 tokenId_, uint256 price_) internal view returns (uint256 fee, address royaltyReceiver, uint256 royalty, uint256 proceeds) {
+    function _computeSplit(address nft_, uint256 tokenId_, uint256 price_)
+        internal
+        view
+        returns (uint256 fee, address royaltyReceiver, uint256 royalty, uint256 proceeds)
+    {
         fee = (price_ * feeBps) / BPS_DENOMINATOR;
-        
-        if(ERC165Checker.supportsInterface(nft_, type(IERC2981).interfaceId)) {
+
+        if (ERC165Checker.supportsInterface(nft_, type(IERC2981).interfaceId)) {
             (royaltyReceiver, royalty) = IERC2981(nft_).royaltyInfo(tokenId_, price_);
-            if(royaltyReceiver == address(0)) royalty = 0;
+            if (royaltyReceiver == address(0)) royalty = 0;
         }
         require(royalty <= price_ - fee, "Fee plus royalty exceed price.");
         proceeds = price_ - fee - royalty;
     }
 
-    function _settle(address nft_, uint256 tokenId_, address seller_, address buyer_, address paymentToken_, uint256 price_) internal {
-        (uint256 fee, address royaltyReceiver, uint256 royalty, uint256 proceeds) = _computeSplit(nft_, tokenId_, price_);
-        
-        if(paymentToken_ == address(0)){
-            _creditEth(seller_, proceeds, fee, royaltyReceiver, royalty);   
+    function _settle(
+        address nft_,
+        uint256 tokenId_,
+        address seller_,
+        address buyer_,
+        address paymentToken_,
+        uint256 price_
+    ) internal {
+        (uint256 fee, address royaltyReceiver, uint256 royalty, uint256 proceeds) =
+            _computeSplit(nft_, tokenId_, price_);
+
+        if (paymentToken_ == address(0)) {
+            _creditEth(seller_, proceeds, fee, royaltyReceiver, royalty);
         } else {
             _payToken(IERC20(paymentToken_), buyer_, seller_, proceeds, fee, royaltyReceiver, royalty);
         }
@@ -180,16 +212,26 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
         emit NFTSold(buyer_, seller_, nft_, tokenId_, paymentToken_, price_);
     }
 
-    function _creditEth(address seller_, uint256 proceeds_, uint256 fee_, address royaltyReceiver_, uint256 royalty_) internal {
+    function _creditEth(address seller_, uint256 proceeds_, uint256 fee_, address royaltyReceiver_, uint256 royalty_)
+        internal
+    {
         pendingEth[seller_] += proceeds_;
         pendingEth[feeRecipient] += fee_;
 
-        if(royalty_> 0) pendingEth[royaltyReceiver_] += royalty_;
+        if (royalty_ > 0) pendingEth[royaltyReceiver_] += royalty_;
     }
 
-    function _payToken(IERC20 token_, address buyer_, address seller_, uint256 proceeds_, uint256 fee_, address royaltyReceiver_, uint256 royalty_) internal {
-        if(proceeds_ > 0) token_.safeTransferFrom(buyer_, seller_, proceeds_);
-        if(fee_ > 0) token_.safeTransferFrom(buyer_, feeRecipient, fee_);
-        if(royalty_ > 0) token_.safeTransferFrom(buyer_, royaltyReceiver_, royalty_);
+    function _payToken(
+        IERC20 token_,
+        address buyer_,
+        address seller_,
+        uint256 proceeds_,
+        uint256 fee_,
+        address royaltyReceiver_,
+        uint256 royalty_
+    ) internal {
+        if (proceeds_ > 0) token_.safeTransferFrom(buyer_, seller_, proceeds_);
+        if (fee_ > 0) token_.safeTransferFrom(buyer_, feeRecipient, fee_);
+        if (royalty_ > 0) token_.safeTransferFrom(buyer_, royaltyReceiver_, royalty_);
     }
 }

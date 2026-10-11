@@ -18,7 +18,7 @@ contract NFTBazaarWithdrawTest is Test {
 
     uint16 feeBps;
     uint256 tokenId;
-    
+
     MockERC20 token;
     MockERC721Royalty royaltyNft;
 
@@ -30,7 +30,7 @@ contract NFTBazaarWithdrawTest is Test {
     event Withdrawn(address indexed account, uint256 amount);
 
     function setUp() public {
-       deployer = makeAddr("deployer");
+        deployer = makeAddr("deployer");
         seller = makeAddr("seller");
         buyer = makeAddr("buyer");
         feeRecipient = makeAddr("feeRecipient");
@@ -52,7 +52,7 @@ contract NFTBazaarWithdrawTest is Test {
     }
 
     // Positive cases
-    
+
     function test_Withdraw_TransfersPendingEthCaller() public {
         _sellDefault();
 
@@ -100,7 +100,7 @@ contract NFTBazaarWithdrawTest is Test {
 
         vm.deal(buyer, price_);
         vm.prank(buyer);
-        bazaar.buyNFT{value: price_}(address(royaltyNft), tokenId);
+        bazaar.buyNFT{value: price_}(address(royaltyNft), tokenId, type(uint256).max);
 
         uint256 sellerPending_ = bazaar.pendingEth(seller);
         uint256 feePending_ = bazaar.pendingEth(feeRecipient);
@@ -109,11 +109,11 @@ contract NFTBazaarWithdrawTest is Test {
         // fee 0 is possible with tiny prices, so only withdraw when there is balance
         vm.prank(seller);
         bazaar.withdraw();
-        if(feePending_ > 0) {
+        if (feePending_ > 0) {
             vm.prank(feeRecipient);
             bazaar.withdraw();
         }
-        if(royaltyPending_ > 0) {
+        if (royaltyPending_ > 0) {
             vm.prank(royaltyReceiver);
             bazaar.withdraw();
         }
@@ -176,7 +176,7 @@ contract NFTBazaarWithdrawTest is Test {
     function _sellDefault() internal {
         _list(PRICE, 0);
         vm.prank(buyer);
-        bazaar.buyNFT{value: PRICE}(address(royaltyNft), tokenId);
+        bazaar.buyNFT{value: PRICE}(address(royaltyNft), tokenId, type(uint256).max);
     }
 
     function _list(uint256 price_, uint256 endTime_) internal {

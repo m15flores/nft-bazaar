@@ -9,7 +9,6 @@ import "./mocks/MockERC721Royalty.sol";
 import "./mocks/MockERC721CustomRoyalty.sol";
 
 contract NFTBazaarSplitTest is Test {
-
     NFTBazaarHarness harness;
     address deployer;
     address feeRecipient;
@@ -45,17 +44,17 @@ contract NFTBazaarSplitTest is Test {
         uint256 expectedFee_ = 0.025 ether;
         uint256 expectedProceeds_ = price_ - expectedFee_; // 0.975 ether
 
-        (uint256 fee_, , , uint256 proceeds_) = harness.computeSplit(nft, tokenId, price_);
+        (uint256 fee_,,, uint256 proceeds_) = harness.computeSplit(nft, tokenId, price_);
 
         assertEq(fee_, expectedFee_);
         assertEq(proceeds_, expectedProceeds_);
     }
 
-    function test_ComputeSplit_FeeIsZero() public {       
+    function test_ComputeSplit_FeeIsZero() public {
         uint256 price_ = 1 ether;
         vm.prank(deployer);
         harness.setFee(0);
-        (uint256 fee_, , , uint256 proceeds_) = harness.computeSplit(nft, tokenId, price_);
+        (uint256 fee_,,, uint256 proceeds_) = harness.computeSplit(nft, tokenId, price_);
 
         assertEq(fee_, 0);
         assertEq(proceeds_, price_);
@@ -66,14 +65,14 @@ contract NFTBazaarSplitTest is Test {
         uint16 maxFeeBps_ = harness.MAX_FEE_BPS();
         vm.prank(deployer);
         harness.setFee(maxFeeBps_);
-        (uint256 fee_, , , ) = harness.computeSplit(nft, tokenId, price_);
+        (uint256 fee_,,,) = harness.computeSplit(nft, tokenId, price_);
 
         assertEq(fee_, 0.1 ether);
     }
 
     function test_ComputeSplit_FeeRoundsDownToZero_WhenPriceIs39() public view {
         uint256 price_ = 39;
-        (uint256 fee_, , , uint256 proceeds_) = harness.computeSplit(nft, tokenId, price_);
+        (uint256 fee_,,, uint256 proceeds_) = harness.computeSplit(nft, tokenId, price_);
 
         assertEq(fee_, 0);
         assertEq(proceeds_, price_);
@@ -84,7 +83,7 @@ contract NFTBazaarSplitTest is Test {
         uint256 price_ = 40;
         uint256 expectedFee_ = 1;
         uint256 expectedProceeds_ = price_ - expectedFee_;
-        (uint256 fee_, , , uint256 proceeds_) = harness.computeSplit(nft, tokenId, price_);
+        (uint256 fee_,,, uint256 proceeds_) = harness.computeSplit(nft, tokenId, price_);
 
         assertEq(fee_, expectedFee_);
         assertEq(proceeds_, expectedProceeds_);
@@ -95,7 +94,7 @@ contract NFTBazaarSplitTest is Test {
         feeBps_ = uint16(bound(feeBps_, 0, harness.MAX_FEE_BPS()));
         vm.prank(deployer);
         harness.setFee(feeBps_);
-        (uint256 fee_, , , uint256 proceeds_) = harness.computeSplit(nft, tokenId, price_);
+        (uint256 fee_,,, uint256 proceeds_) = harness.computeSplit(nft, tokenId, price_);
 
         // fee is exactly floor(price * bps / 10_000)
         assertEq(fee_ + proceeds_, price_);
@@ -122,7 +121,8 @@ contract NFTBazaarSplitTest is Test {
 
         royaltyNft.setDefaultRoyalty(royaltyReceiver, 500);
 
-        (uint256 fee_, address royaltyReceiver_, uint256 royalty_, uint256 proceeds_) = harness.computeSplit(address(royaltyNft), tokenId, price_);
+        (uint256 fee_, address royaltyReceiver_, uint256 royalty_, uint256 proceeds_) =
+            harness.computeSplit(address(royaltyNft), tokenId, price_);
 
         assertEq(fee_, expectedFee_);
         assertEq(royalty_, expectedRoyalty_);
@@ -136,7 +136,8 @@ contract NFTBazaarSplitTest is Test {
         uint256 expectedRoyalty_ = 0;
         uint256 expectedProceeds_ = price_ - expectedFee_ - expectedRoyalty_;
 
-        (uint256 fee_, address royaltyReceiver_, uint256 royalty_, uint256 proceeds_) = harness.computeSplit(address(plainNft), tokenId, price_);
+        (uint256 fee_, address royaltyReceiver_, uint256 royalty_, uint256 proceeds_) =
+            harness.computeSplit(address(plainNft), tokenId, price_);
 
         assertEq(fee_, expectedFee_);
         assertEq(royalty_, expectedRoyalty_);
@@ -152,7 +153,8 @@ contract NFTBazaarSplitTest is Test {
 
         customNft.setRoyalty(royaltyReceiver, royalty);
 
-        (uint256 fee_, address royaltyReceiver_, uint256 royalty_, uint256 proceeds_) = harness.computeSplit(address(customNft), tokenId, price_);
+        (uint256 fee_, address royaltyReceiver_, uint256 royalty_, uint256 proceeds_) =
+            harness.computeSplit(address(customNft), tokenId, price_);
 
         assertEq(fee_, expectedFee_);
         assertEq(royalty_, royalty);
@@ -165,7 +167,8 @@ contract NFTBazaarSplitTest is Test {
         uint256 royalty = 0.05 ether; // not zero and below price - fee
         customNft.setRoyalty(address(0), royalty);
 
-        (uint256 fee_, address royaltyReceiver_, uint256 royalty_, uint256 proceeds_) = harness.computeSplit(address(customNft), tokenId, price_);
+        (uint256 fee_, address royaltyReceiver_, uint256 royalty_, uint256 proceeds_) =
+            harness.computeSplit(address(customNft), tokenId, price_);
 
         assertEq(royalty_, 0);
         assertEq(royaltyReceiver_, address(0));
@@ -173,7 +176,6 @@ contract NFTBazaarSplitTest is Test {
     }
 
     function testFuzz_ComputeSplit_PartsAddUp_WithRoyalty(uint256 price_, uint16 feeBps_, uint96 royaltyBps_) public {
-        
         uint16 maxFeeBps_ = harness.MAX_FEE_BPS();
         price_ = bound(price_, 0, type(uint128).max);
         feeBps_ = uint16(bound(feeBps_, 0, maxFeeBps_));
@@ -183,7 +185,8 @@ contract NFTBazaarSplitTest is Test {
         harness.setFee(feeBps_);
         royaltyNft.setDefaultRoyalty(royaltyReceiver, royaltyBps_);
 
-        (uint256 fee, address receiver, uint256 royalty, uint256 proceeds) = harness.computeSplit(address(royaltyNft), tokenId, price_);
+        (uint256 fee, address receiver, uint256 royalty, uint256 proceeds) =
+            harness.computeSplit(address(royaltyNft), tokenId, price_);
 
         assertEq(fee + royalty + proceeds, price_);
         assertEq(receiver, royaltyReceiver);
@@ -198,7 +201,7 @@ contract NFTBazaarSplitTest is Test {
         customNft.setRoyalty(royaltyReceiver, royalty);
 
         vm.expectRevert("Fee plus royalty exceed price.");
-        harness.computeSplit(address(customNft), tokenId, price_);        
+        harness.computeSplit(address(customNft), tokenId, price_);
     }
 
     function test_ComputeSplit_RevertWhen_RoyaltyIsMaxUint() public {
@@ -208,6 +211,6 @@ contract NFTBazaarSplitTest is Test {
         customNft.setRoyalty(royaltyReceiver, royalty);
 
         vm.expectRevert("Fee plus royalty exceed price.");
-        harness.computeSplit(address(customNft), tokenId, price_); 
+        harness.computeSplit(address(customNft), tokenId, price_);
     }
 }

@@ -8,7 +8,6 @@ import "./mocks/MockERC20.sol";
 import "./mocks/MockERC721.sol";
 
 contract NFTBazaarTest is Test {
-    
     NFTBazaar bazaar;
     address deployer;
     address feeRecipient;
@@ -27,9 +26,18 @@ contract NFTBazaarTest is Test {
     event FeeSet(uint16 feeBps_);
     event FeeRecipientSet(address indexed feeRecipient_);
     event AllowedTokenSet(address indexed token_, bool allowed_);
-    event NFTListed(address indexed seller, address indexed nft, uint256 indexed tokenId, address paymentToken, uint256 price, uint256 endTime);
+    event NFTListed(
+        address indexed seller,
+        address indexed nft,
+        uint256 indexed tokenId,
+        address paymentToken,
+        uint256 price,
+        uint256 endTime
+    );
     event NFTCancelled(address indexed seller, address indexed nft, uint256 indexed tokenId);
-    event NFTListingUpdated(address indexed seller, address indexed nft, uint256 indexed tokenId, uint256 oldPrice, uint256 newPrice);
+    event NFTListingUpdated(
+        address indexed seller, address indexed nft, uint256 indexed tokenId, uint256 oldPrice, uint256 newPrice
+    );
 
     function setUp() public {
         deployer = makeAddr("deployer");
@@ -40,7 +48,7 @@ contract NFTBazaarTest is Test {
         nft = new MockERC721();
         seller = makeAddr("seller");
         tokenId = 1;
-        
+
         vm.warp(INITIAL_TIMESTAMP);
         vm.startPrank(deployer);
         bazaar = new NFTBazaar(feeRecipient, feeBps);
@@ -59,7 +67,7 @@ contract NFTBazaarTest is Test {
     }
 
     function test_Constructor_AcceptsMaxFee() public {
-        uint16 maxFee_ = bazaar.MAX_FEE_BPS();   // leer la constante antes del prank
+        uint16 maxFee_ = bazaar.MAX_FEE_BPS(); // leer la constante antes del prank
 
         vm.prank(deployer);
         NFTBazaar bazaarMax_ = new NFTBazaar(feeRecipient, maxFee_);
@@ -84,7 +92,7 @@ contract NFTBazaarTest is Test {
         vm.prank(deployer);
         new NFTBazaar(feeRecipient, feeBps);
     }
-    
+
     // Reverts
 
     function test_Constructor_RevertWhen_FeeAboveMax() public {
@@ -145,16 +153,14 @@ contract NFTBazaarTest is Test {
 
     function test_SetFee_RevertWhen_CallerNotOwner() public {
         uint16 feeBps_ = 300;
-        
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomUser)
-        );
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomUser));
         vm.prank(randomUser);
         bazaar.setFee(feeBps_);
 
         assertEq(bazaar.feeBps(), feeBps);
     }
-    
+
     function test_SetFee_RevertWhen_FeeAboveMax() public {
         uint16 feeBpsGreaterThanMax_ = bazaar.MAX_FEE_BPS() + 1;
         vm.expectRevert("Fee Base Points cannot be greater than 10%.");
@@ -169,13 +175,13 @@ contract NFTBazaarTest is Test {
     function testFuzz_SetFee_AcceptsFeeUpToMax(uint16 feeBps_) public {
         uint256 max = bazaar.MAX_FEE_BPS();
         feeBps_ = uint16(bound(feeBps_, 0, max));
-        
+
         vm.expectEmit(false, false, false, true);
         emit FeeSet(feeBps_);
 
         vm.prank(deployer);
         bazaar.setFee(feeBps_);
-        
+
         assertEq(bazaar.feeBps(), feeBps_);
     }
 
@@ -217,9 +223,7 @@ contract NFTBazaarTest is Test {
 
     function test_SetFeeRecipient_RevertWhen_CallerNotOwner() public {
         address newFeeRecipient_ = makeAddr("newFeeRecipient");
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomUser)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomUser));
 
         vm.prank(randomUser);
         bazaar.setFeeRecipient(newFeeRecipient_);
@@ -239,7 +243,7 @@ contract NFTBazaarTest is Test {
 
     // Positive cases
 
-    function test_SetAllowedToken_EnablesToken() public { 
+    function test_SetAllowedToken_EnablesToken() public {
         address token_ = address(token);
         assertFalse(bazaar.allowedToken(token_));
 
@@ -259,7 +263,7 @@ contract NFTBazaarTest is Test {
 
         // Then, verify it can be desactivated
         bazaar.setAllowedToken(token_, false);
-        assertFalse(bazaar.allowedToken(token_)); 
+        assertFalse(bazaar.allowedToken(token_));
 
         vm.stopPrank();
     }
@@ -335,9 +339,7 @@ contract NFTBazaarTest is Test {
     function test_SetAllowedToken_RevertWhen_CallerNotOwner() public {
         address token_ = address(token);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomUser)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomUser));
         vm.prank(randomUser);
         bazaar.setAllowedToken(token_, true);
 
@@ -376,7 +378,7 @@ contract NFTBazaarTest is Test {
         vm.prank(seller);
         bazaar.listNFT(address(nft), tokenId, address(token), DEFAULT_PRICE, endTime_);
 
-        (, address paymentToken_, , , , ) = bazaar.listing(address(nft), tokenId);
+        (, address paymentToken_,,,,) = bazaar.listing(address(nft), tokenId);
 
         assertEq(paymentToken_, address(token));
     }
@@ -389,7 +391,7 @@ contract NFTBazaarTest is Test {
         vm.prank(seller);
         bazaar.listNFT(address(nft), tokenId, address(0), DEFAULT_PRICE, endTime_);
 
-        (, , , , , uint256 endTime) = bazaar.listing(address(nft), tokenId);
+        (,,,,, uint256 endTime) = bazaar.listing(address(nft), tokenId);
 
         assertEq(endTime, endTime_);
     }
@@ -401,7 +403,7 @@ contract NFTBazaarTest is Test {
         vm.prank(seller);
         bazaar.listNFT(address(nft), tokenId, address(0), DEFAULT_PRICE, INITIAL_TIMESTAMP + LISTING_DURATION);
 
-        (address seller_, , , , , ) = bazaar.listing(address(nft), tokenId);
+        (address seller_,,,,,) = bazaar.listing(address(nft), tokenId);
         assertEq(seller_, seller);
     }
 
@@ -419,11 +421,11 @@ contract NFTBazaarTest is Test {
         _approveBazaar();
 
         vm.startPrank(seller);
-        
+
         bazaar.listNFT(address(nft), tokenId, address(0), DEFAULT_PRICE, INITIAL_TIMESTAMP + LISTING_DURATION);
 
         vm.warp(INITIAL_TIMESTAMP + 1 days);
-        
+
         uint256 relistPrice_ = DEFAULT_PRICE * 2;
         uint256 newEndTime_ = block.timestamp + LISTING_DURATION;
         bazaar.listNFT(address(nft), tokenId, address(token), relistPrice_, newEndTime_);
@@ -440,7 +442,7 @@ contract NFTBazaarTest is Test {
         _approveBazaar();
         vm.startPrank(seller);
         bazaar.listNFT(address(nft), tokenId, address(0), DEFAULT_PRICE, firstEndTime_);
-        
+
         // 2. The seller transfers the NFT : the token approval is deleted
         nft.transferFrom(seller, newOwner_, tokenId);
         assertEq(nft.ownerOf(tokenId), newOwner_);
@@ -623,7 +625,7 @@ contract NFTBazaarTest is Test {
         _assertNoListing();
 
         // Assert Listing #2 still alive
-        (address seller2_, , , , , ) = bazaar.listing(address(nft), token2Id_);
+        (address seller2_,,,,,) = bazaar.listing(address(nft), token2Id_);
         assertEq(seller2_, seller);
     }
 
@@ -670,7 +672,7 @@ contract NFTBazaarTest is Test {
     function test_CancelListing_RevertWhen_AlreadyCancelled() public {
         _listDefault();
         vm.startPrank(seller);
-        
+
         bazaar.cancelListing(address(nft), tokenId);
         vm.expectRevert("Listing does not exist.");
         bazaar.cancelListing(address(nft), tokenId);
@@ -681,7 +683,7 @@ contract NFTBazaarTest is Test {
     function test_CancelListing_RevertWhen_CallerIsNewOwnerOfStaleListing() public {
         address newOwner_ = makeAddr("newOwner");
         uint256 firstEndTime_ = INITIAL_TIMESTAMP + LISTING_DURATION;
-        
+
         // 1. The original seller lists
         _listDefault();
 
@@ -797,12 +799,10 @@ contract NFTBazaarTest is Test {
         // The transfer is only started: nothing has changed yet
         assertEq(bazaar.pendingOwner(), newOwner_);
         assertEq(bazaar.owner(), deployer);
-        
+
         // The pending owner still cannot administer
         uint16 feeBps_ = 300;
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, newOwner_)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, newOwner_));
         vm.prank(newOwner_);
         bazaar.setFee(feeBps_);
     }
@@ -815,21 +815,19 @@ contract NFTBazaarTest is Test {
 
         vm.prank(newOwner_);
         bazaar.acceptOwnership();
-        
-         // The new owner can administer
+
+        // The new owner can administer
         uint16 feeBps_ = 300;
         vm.prank(newOwner_);
         bazaar.setFee(feeBps_);
         assertEq(bazaar.feeBps(), feeBps_);
 
         // The previous owner no longer can
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, deployer)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, deployer));
         vm.prank(deployer);
         bazaar.setFee(feeBps_);
     }
-    
+
     // Reverts
 
     function test_AcceptOwnership_RevertWhen_CallerNotPendingOwner() public {
@@ -838,20 +836,16 @@ contract NFTBazaarTest is Test {
         vm.prank(deployer);
         bazaar.transferOwnership(newOwner_);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomUser)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomUser));
         vm.prank(randomUser);
         bazaar.acceptOwnership();
     }
-    
+
     function test_TransferOwnership_RevertWhen_CallerNotOwner() public {
         address newOwner_ = makeAddr("newOwner");
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomUser)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomUser));
         vm.prank(randomUser);
-        bazaar.transferOwnership(newOwner_);        
+        bazaar.transferOwnership(newOwner_);
     }
 
     function _allowToken() internal {
@@ -870,11 +864,17 @@ contract NFTBazaarTest is Test {
     }
 
     function _assertNoListing() internal view {
-        (address seller_, , , , , ) = bazaar.listing(address(nft), tokenId);
+        (address seller_,,,,,) = bazaar.listing(address(nft), tokenId);
         assertEq(seller_, address(0));
     }
 
-    function _assertListing(address seller_, address paymentToken_, uint256 price_, uint256 startTime_, uint256 endTime_) internal view {
+    function _assertListing(
+        address seller_,
+        address paymentToken_,
+        uint256 price_,
+        uint256 startTime_,
+        uint256 endTime_
+    ) internal view {
         (
             address gotSeller,
             address gotToken,

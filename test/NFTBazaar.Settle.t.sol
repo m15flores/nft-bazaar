@@ -12,7 +12,6 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 contract NFTBazaarSettleTest is Test {
-
     NFTBazaarHarness harness;
     address deployer;
     address seller;
@@ -22,13 +21,20 @@ contract NFTBazaarSettleTest is Test {
 
     uint16 feeBps;
     uint256 tokenId;
-    
+
     MockERC20 token;
     MockERC721 plainNft;
     MockERC721Royalty royaltyNft;
     MockERC721CustomRoyalty customNft;
 
-    event NFTSold(address indexed buyer, address indexed seller, address indexed nft, uint256 tokenId, address paymentToken, uint256 price);
+    event NFTSold(
+        address indexed buyer,
+        address indexed seller,
+        address indexed nft,
+        uint256 tokenId,
+        address paymentToken,
+        uint256 price
+    );
 
     function setUp() public {
         deployer = makeAddr("deployer");
@@ -94,7 +100,7 @@ contract NFTBazaarSettleTest is Test {
     function test_Settle_RoyaltyReceiverIsAddressZero() public {
         uint256 price_ = 1 ether;
         uint256 royalty = 0.05 ether; // not zero and below price - fee
-        
+
         uint256 expectedFee_ = 0.025 ether;
         uint256 expectedRoyalty_ = 0;
         uint256 expectedProceeds_ = price_ - expectedFee_ - expectedRoyalty_;
@@ -124,7 +130,7 @@ contract NFTBazaarSettleTest is Test {
 
         uint256 price_ = 1 ether;
         uint96 royaltyBps_ = 500;
-        
+
         uint256 expectedFee_ = 0.025 ether;
         uint256 expectedRoyalty_ = 0.05 ether;
         uint256 expectedProceeds_ = price_ - expectedFee_ - expectedRoyalty_;
@@ -144,7 +150,7 @@ contract NFTBazaarSettleTest is Test {
 
         uint256 price_ = 1 ether;
         uint96 royaltyBps_ = 500;
-        
+
         uint256 expectedFee_ = 0.025 ether;
         uint256 expectedRoyalty_ = 0.05 ether;
         uint256 expectedProceeds_ = price_ - expectedFee_ - expectedRoyalty_;
@@ -164,7 +170,7 @@ contract NFTBazaarSettleTest is Test {
 
         uint256 price_ = 1 ether;
         uint96 royaltyBps_ = 500;
-        
+
         uint256 expectedFee_ = 0.025 ether;
         uint256 expectedRoyalty_ = 0.05 ether;
         uint256 expectedProceeds_ = price_ - expectedFee_ - expectedRoyalty_;
@@ -186,7 +192,7 @@ contract NFTBazaarSettleTest is Test {
 
         uint256 price_ = 1 ether;
         uint96 royaltyBps_ = 500;
-        
+
         uint256 expectedFee_ = 0.025 ether;
         uint256 expectedRoyalty_ = 0.05 ether;
         uint256 expectedProceeds_ = price_ - expectedFee_ - expectedRoyalty_;
@@ -273,7 +279,7 @@ contract NFTBazaarSettleTest is Test {
 
         vm.prank(deployer);
         harness.setFeeRecipient(seller);
-        
+
         royaltyNft.setDefaultRoyalty(royaltyReceiver, 500);
         _approveHarness(address(royaltyNft));
         _fundBuyer(price_);
@@ -298,7 +304,8 @@ contract NFTBazaarSettleTest is Test {
         royaltyNft.setDefaultRoyalty(royaltyReceiver, royaltyBps_);
         _approveHarness(address(royaltyNft));
 
-        (uint256 fee, address receiver, uint256 royalty, uint256 proceeds) = harness.computeSplit(address(royaltyNft), tokenId, price_);
+        (uint256 fee, address receiver, uint256 royalty, uint256 proceeds) =
+            harness.computeSplit(address(royaltyNft), tokenId, price_);
 
         vm.deal(address(this), price_);
         harness.settle{value: price_}(address(royaltyNft), tokenId, seller, buyer, address(0), price_);
@@ -311,7 +318,9 @@ contract NFTBazaarSettleTest is Test {
         assertEq(royaltyNft.ownerOf(tokenId), buyer);
     }
 
-    function testFuzz_Settle_Token_DistributesExactlyThePrice(uint256 price_, uint16 feeBps_, uint96 royaltyBps_) public {
+    function testFuzz_Settle_Token_DistributesExactlyThePrice(uint256 price_, uint16 feeBps_, uint96 royaltyBps_)
+        public
+    {
         uint256 maxFeeBps_ = harness.MAX_FEE_BPS();
         price_ = bound(price_, 0, type(uint128).max);
         feeBps_ = uint16(bound(feeBps_, 0, maxFeeBps_));
@@ -323,7 +332,8 @@ contract NFTBazaarSettleTest is Test {
         _approveHarness(address(royaltyNft));
         _fundBuyer(price_);
 
-        (uint256 fee, address receiver, uint256 royalty, uint256 proceeds) = harness.computeSplit(address(royaltyNft), tokenId, price_);
+        (uint256 fee, address receiver, uint256 royalty, uint256 proceeds) =
+            harness.computeSplit(address(royaltyNft), tokenId, price_);
         harness.settle(address(royaltyNft), tokenId, seller, buyer, address(token), price_);
 
         assertEq(token.balanceOf(seller), proceeds);
@@ -336,7 +346,7 @@ contract NFTBazaarSettleTest is Test {
     }
 
     // Events
-    
+
     function test_Settle_EmitsNFTSold() public {
         uint256 price_ = 1 ether;
         uint96 royaltyBps_ = 500;
@@ -373,9 +383,7 @@ contract NFTBazaarSettleTest is Test {
         royaltyNft.setDefaultRoyalty(royaltyReceiver, 500);
         _approveHarness(address(royaltyNft));
 
-        vm.expectRevert(
-            abi.encodeWithSelector(IERC721Errors.ERC721IncorrectOwner.selector, notOwner_, tokenId, seller)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721IncorrectOwner.selector, notOwner_, tokenId, seller));
         harness.settle{value: price_}(address(royaltyNft), tokenId, notOwner_, buyer, address(0), price_);
 
         assertEq(_totalPending(), 0);
@@ -404,27 +412,25 @@ contract NFTBazaarSettleTest is Test {
         royaltyNft.setDefaultRoyalty(royaltyReceiver, 500);
         _approveHarness(address(royaltyNft));
 
-        vm.expectRevert(
-            abi.encodeWithSelector(IERC721Errors.ERC721InvalidReceiver.selector, receiver_)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721InvalidReceiver.selector, receiver_));
         harness.settle{value: price_}(address(royaltyNft), tokenId, seller, receiver_, address(0), price_);
 
         assertEq(_totalPending(), 0);
         assertEq(address(harness).balance, 0);
         assertEq(royaltyNft.ownerOf(tokenId), seller);
     }
-    
+
     function test_Settle_RevertWhen_FeePlusRoyaltyExceedsPrice() public {
         uint256 price_ = 1 ether;
         uint256 expectedFee_ = 0.025 ether;
         uint256 royalty = price_ - expectedFee_ + 1;
-        
+
         customNft.setRoyalty(royaltyReceiver, royalty);
         _approveHarness(address(customNft));
 
         vm.expectRevert("Fee plus royalty exceed price.");
         harness.settle{value: price_}(address(customNft), tokenId, seller, buyer, address(0), price_);
-        
+
         assertEq(_totalPending(), 0);
         assertEq(address(harness).balance, 0);
     }
@@ -454,7 +460,7 @@ contract NFTBazaarSettleTest is Test {
 
     function test_Settle_RevertWhen_BuyerHasNotApprovedToken() public {
         uint256 price_ = 1 ether;
-        
+
         royaltyNft.setDefaultRoyalty(royaltyReceiver, 500);
         _approveHarness(address(royaltyNft));
         token.mint(buyer, price_);
