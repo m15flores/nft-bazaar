@@ -4,11 +4,15 @@ pragma solidity 0.8.34;
 
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract NFTBazaar is Ownable2Step, ReentrancyGuard {
+    
+    using SafeERC20 for IERC20;
 
     struct Listing {
         address seller;
@@ -106,8 +110,13 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
         Listing memory listing_ = listing[nft_][tokenId_];
         require(listing_.seller != address(0), "Listing does not exist.");
         require(listing_.endTime == 0 || block.timestamp < listing_.endTime, "Listing expired.");
-        require(listing_.paymentToken == address(0), "ERC20 payments not supported yet.");
-        require(msg.value == listing_.startPrice, "Incorrect payment.");
+
+        if(listing_.paymentToken == address(0)) {
+            require(msg.value == listing_.startPrice, "Incorrect payment.");
+        } else {
+            require(allowedToken[listing_.paymentToken], "Payment token not allowed.");
+            require(msg.value == 0, "Unexpected ETH.");
+        }
 
         delete listing[nft_][tokenId_];
 
@@ -147,7 +156,7 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
     }
 
     function _computeSplit(address nft_, uint256 tokenId_, uint256 price_) internal view returns (uint256 fee, address royaltyReceiver, uint256 royalty, uint256 proceeds) {
-        fee = (price_ * feeBps) / 10_000;
+        fee = (price_ * feeBps) / BPS_DENOMINATOR;
         
         if(ERC165Checker.supportsInterface(nft_, type(IERC2981).interfaceId)) {
             (royaltyReceiver, royalty) = IERC2981(nft_).royaltyInfo(tokenId_, price_);
@@ -160,12 +169,27 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
     function _settle(address nft_, uint256 tokenId_, address seller_, address buyer_, address paymentToken_, uint256 price_) internal {
         (uint256 fee, address royaltyReceiver, uint256 royalty, uint256 proceeds) = _computeSplit(nft_, tokenId_, price_);
         
-        pendingEth[seller_] += proceeds;
-        pendingEth[feeRecipient] += fee;
-        if(royalty > 0) pendingEth[royaltyReceiver] += royalty;
+        if(paymentToken_ == address(0)){
+            _creditEth(seller_, proceeds, fee, royaltyReceiver, royalty);   
+        } else {
+            _payToken(IERC20(paymentToken_), buyer_, seller_, proceeds, fee, royaltyReceiver, royalty);
+        }
 
         IERC721(nft_).safeTransferFrom(seller_, buyer_, tokenId_);
 
         emit NFTSold(buyer_, seller_, nft_, tokenId_, paymentToken_, price_);
+    }
+
+    function _creditEth(address seller_, uint256 proceeds_, uint256 fee_, address royaltyReceiver_, uint256 royalty_) internal {
+        pendingEth[seller_] += proceeds_;
+        pendingEth[feeRecipient] += fee_;
+
+        if(royalty_> 0) pendingEth[royaltyReceiver_] += royalty_;
+    }
+
+    function _payToken(IERC20 token_, address buyer_, address seller_, uint256 proceeds_, uint256 fee_, address royaltyReceiver_, uint256 royalty_) internal {
+        if(proceeds_ > 0) token_.safeTransferFrom(buyer_, seller_, proceeds_);
+        if(fee_ > 0) token_.safeTransferFrom(buyer_, feeRecipient, fee_);
+        if(royalty_ > 0) token_.safeTransferFrom(buyer_, royaltyReceiver_, royalty_);
     }
 }

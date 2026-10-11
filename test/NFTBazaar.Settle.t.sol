@@ -235,6 +235,56 @@ contract NFTBazaarSettleTest is Test {
         assertEq(_totalPending(), price_);
     }
 
+    function test_Settle_PaysTokenToSellerFreeRecipientAndRoyaltyReceiver() public {
+        royaltyNft.setDefaultRoyalty(royaltyReceiver, 500);
+        _approveHarness(address(royaltyNft));
+        _fundBuyer(1 ether);
+
+        harness.settle(address(royaltyNft), tokenId, seller, buyer, address(token), 1 ether);
+
+        assertEq(token.balanceOf(seller), 0.925 ether);
+        assertEq(token.balanceOf(feeRecipient), 0.025 ether);
+        assertEq(token.balanceOf(royaltyReceiver), 0.05 ether);
+        assertEq(token.balanceOf(buyer), 0);
+        assertEq(token.balanceOf(address(harness)), 0);
+        assertEq(_totalPending(), 0);
+        assertEq(royaltyNft.ownerOf(tokenId), buyer);
+    }
+
+    // Positive cases (token)
+
+    function test_Settle_PaysToken_NoRoyalty_WhenNFTDoesNotSupportERC2981() public {
+        uint256 price_ = 1 ether;
+        _approveHarness(address(plainNft));
+        _fundBuyer(price_);
+
+        harness.settle(address(plainNft), tokenId, seller, buyer, address(token), price_);
+
+        assertEq(token.balanceOf(seller), 0.975 ether);
+        assertEq(token.balanceOf(feeRecipient), 0.025 ether);
+        assertEq(token.balanceOf(royaltyReceiver), 0);
+        assertEq(token.balanceOf(buyer), 0);
+        assertEq(token.balanceOf(address(harness)), 0);
+        assertEq(plainNft.ownerOf(tokenId), buyer);
+    }
+
+    function test_Settle_PaysToken_WhenFeeRecipientIsSeller() public {
+        uint256 price_ = 1 ether;
+
+        vm.prank(deployer);
+        harness.setFeeRecipient(seller);
+        
+        royaltyNft.setDefaultRoyalty(royaltyReceiver, 500);
+        _approveHarness(address(royaltyNft));
+        _fundBuyer(price_);
+
+        harness.settle(address(royaltyNft), tokenId, seller, buyer, address(token), price_);
+
+        assertEq(token.balanceOf(seller), 0.95 ether);
+        assertEq(token.balanceOf(royaltyReceiver), 0.05 ether);
+        assertEq(token.balanceOf(buyer), 0);
+    }
+
     // Fuzz
 
     function testFuzz_Settle_CreditsExactlyThePrice(uint256 price_, uint16 feeBps_, uint96 royaltyBps_) public {
@@ -248,8 +298,7 @@ contract NFTBazaarSettleTest is Test {
         royaltyNft.setDefaultRoyalty(royaltyReceiver, royaltyBps_);
         _approveHarness(address(royaltyNft));
 
-        (uint256 fee, address receiver, uint256 royalty, uint256 proceeds) =
-            harness.computeSplit(address(royaltyNft), tokenId, price_);
+        (uint256 fee, address receiver, uint256 royalty, uint256 proceeds) = harness.computeSplit(address(royaltyNft), tokenId, price_);
 
         vm.deal(address(this), price_);
         harness.settle{value: price_}(address(royaltyNft), tokenId, seller, buyer, address(0), price_);
@@ -259,6 +308,30 @@ contract NFTBazaarSettleTest is Test {
         assertEq(harness.pendingEth(receiver), royalty);
         assertEq(_totalPending(), price_);
         assertEq(address(harness).balance, price_);
+        assertEq(royaltyNft.ownerOf(tokenId), buyer);
+    }
+
+    function testFuzz_Settle_Token_DistributesExactlyThePrice(uint256 price_, uint16 feeBps_, uint96 royaltyBps_) public {
+        uint256 maxFeeBps_ = harness.MAX_FEE_BPS();
+        price_ = bound(price_, 0, type(uint128).max);
+        feeBps_ = uint16(bound(feeBps_, 0, maxFeeBps_));
+        royaltyBps_ = uint96(bound(royaltyBps_, 0, harness.BPS_DENOMINATOR() - feeBps_));
+
+        vm.prank(deployer);
+        harness.setFee(feeBps_);
+        royaltyNft.setDefaultRoyalty(royaltyReceiver, royaltyBps_);
+        _approveHarness(address(royaltyNft));
+        _fundBuyer(price_);
+
+        (uint256 fee, address receiver, uint256 royalty, uint256 proceeds) = harness.computeSplit(address(royaltyNft), tokenId, price_);
+        harness.settle(address(royaltyNft), tokenId, seller, buyer, address(token), price_);
+
+        assertEq(token.balanceOf(seller), proceeds);
+        assertEq(token.balanceOf(feeRecipient), fee);
+        assertEq(token.balanceOf(receiver), royalty);
+        assertEq(token.balanceOf(seller) + token.balanceOf(feeRecipient) + token.balanceOf(receiver), price_);
+        assertEq(token.balanceOf(buyer), 0);
+        assertEq(token.balanceOf(address(harness)), 0);
         assertEq(royaltyNft.ownerOf(tokenId), buyer);
     }
 
@@ -275,6 +348,20 @@ contract NFTBazaarSettleTest is Test {
         emit NFTSold(buyer, seller, address(royaltyNft), tokenId, address(0), price_);
 
         harness.settle{value: price_}(address(royaltyNft), tokenId, seller, buyer, address(0), price_);
+    }
+
+    function test_Settle_Token_EmitsNFTSold() public {
+        uint256 price_ = 1 ether;
+        uint96 royaltyBps_ = 500;
+
+        royaltyNft.setDefaultRoyalty(royaltyReceiver, royaltyBps_);
+        _approveHarness(address(royaltyNft));
+        _fundBuyer(price_);
+
+        vm.expectEmit(true, true, true, true);
+        emit NFTSold(buyer, seller, address(royaltyNft), tokenId, address(token), price_);
+
+        harness.settle{value: price_}(address(royaltyNft), tokenId, seller, buyer, address(token), price_);
     }
 
     // Reverts
@@ -342,6 +429,62 @@ contract NFTBazaarSettleTest is Test {
         assertEq(address(harness).balance, 0);
     }
 
+    // Reverts (token)
+
+    function test_Settle_RevertWhen_BuyerHasInsufficientBalance() public {
+        uint256 balance_ = 0.5 ether;
+        uint256 price_ = 1 ether;
+
+        royaltyNft.setDefaultRoyalty(royaltyReceiver, 500);
+        _approveHarness(address(royaltyNft));
+
+        token.mint(buyer, balance_);
+        vm.prank(buyer);
+        token.approve(address(harness), price_);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, buyer, balance_, 0.925 ether)
+        );
+        harness.settle(address(royaltyNft), tokenId, seller, buyer, address(token), price_);
+
+        assertEq(token.balanceOf(buyer), balance_);
+        assertEq(token.balanceOf(seller), 0);
+        assertEq(royaltyNft.ownerOf(tokenId), seller);
+    }
+
+    function test_Settle_RevertWhen_BuyerHasNotApprovedToken() public {
+        uint256 price_ = 1 ether;
+        
+        royaltyNft.setDefaultRoyalty(royaltyReceiver, 500);
+        _approveHarness(address(royaltyNft));
+        token.mint(buyer, price_);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, address(harness), 0, 0.925 ether)
+        );
+        harness.settle(address(royaltyNft), tokenId, seller, buyer, address(token), price_);
+
+        assertEq(token.balanceOf(buyer), price_);
+        assertEq(royaltyNft.ownerOf(tokenId), seller);
+    }
+
+    function test_Settle_RevertWhen_NFTTransferFails_UndoesTokenPayments() public {
+        uint256 price_ = 1 ether;
+        royaltyNft.setDefaultRoyalty(royaltyReceiver, 500);
+        _fundBuyer(price_);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721InsufficientApproval.selector, address(harness), tokenId)
+        );
+        harness.settle(address(royaltyNft), tokenId, seller, buyer, address(token), price_);
+
+        assertEq(token.balanceOf(buyer), price_);
+        assertEq(token.balanceOf(seller), 0);
+        assertEq(token.balanceOf(feeRecipient), 0);
+        assertEq(token.balanceOf(royaltyReceiver), 0);
+        assertEq(royaltyNft.ownerOf(tokenId), seller);
+    }
+
     function _approveHarness(address nft_) internal {
         vm.prank(seller);
         IERC721(nft_).approve(address(harness), tokenId);
@@ -353,8 +496,12 @@ contract NFTBazaarSettleTest is Test {
     }
 
     function _totalPending() internal view returns (uint256) {
-        return harness.pendingEth(seller)
-            + harness.pendingEth(feeRecipient)
-            + harness.pendingEth(royaltyReceiver);
+        return harness.pendingEth(seller) + harness.pendingEth(feeRecipient) + harness.pendingEth(royaltyReceiver);
+    }
+
+    function _fundBuyer(uint256 amount_) internal {
+        token.mint(buyer, amount_);
+        vm.prank(buyer);
+        token.approve(address(harness), amount_);
     }
 }

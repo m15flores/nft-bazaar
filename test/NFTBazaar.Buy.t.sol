@@ -115,6 +115,27 @@ contract NFTBazaarBuyTest is Test {
         assertEq(address(bazaar).balance, PRICE * 2);
     }
 
+    // Positive cases (token)
+
+    function test_BuyNFT_PaysWithToken() public {
+        _listWithToken(PRICE);
+        _fundBuyer(PRICE);
+
+        vm.prank(buyer);
+        bazaar.buyNFT(address(royaltyNft), tokenId);
+
+        assertEq(token.balanceOf(seller), 0.925 ether);
+        assertEq(token.balanceOf(feeRecipient), 0.025 ether);
+        assertEq(token.balanceOf(royaltyReceiver), 0.05 ether);
+        assertEq(token.balanceOf(buyer), 0);
+        assertEq(token.balanceOf(address(bazaar)), 0);
+        assertEq(address(bazaar).balance, 0);
+        assertEq(bazaar.pendingEth(seller), 0);
+        assertEq(royaltyNft.ownerOf(tokenId), buyer);
+        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        assertEq(listedSeller_, address(0));
+    }
+
     // Fuzz
 
     function testFuzz_BuyNFT_CreditsExactlyThePrice(uint256 price_, uint16 feeBps_, uint96 royaltyBps_) public {
@@ -145,6 +166,33 @@ contract NFTBazaarBuyTest is Test {
         assertEq(royaltyNft.ownerOf(tokenId), buyer);
     }
 
+    function testFuzz_BuyNFT_Token_CreditsExactlyThePrice(uint256 price_, uint16 feeBps_, uint96 royaltyBps_) public {
+        uint16 maxFeeBps_ = bazaar.MAX_FEE_BPS();
+        uint256 bps_ = bazaar.BPS_DENOMINATOR();
+        price_ = bound(price_, 1, type(uint128).max);
+        feeBps_ = uint16(bound(feeBps_, 0, maxFeeBps_));
+        royaltyBps_ = uint96(bound(royaltyBps_, 0, bps_ - feeBps_));
+
+        vm.prank(deployer);
+        bazaar.setFee(feeBps_);
+        royaltyNft.setDefaultRoyalty(royaltyReceiver, royaltyBps_);
+        _listWithToken(price_);
+        _fundBuyer(price_);
+
+        uint256 expectedFee_ = (price_ * feeBps_) / bps_;
+        (, uint256 expectedRoyalty_) = royaltyNft.royaltyInfo(tokenId, price_);
+
+        vm.prank(buyer);
+        bazaar.buyNFT(address(royaltyNft), tokenId);
+
+        assertEq(token.balanceOf(feeRecipient), expectedFee_);
+        assertEq(token.balanceOf(royaltyReceiver), expectedRoyalty_);
+        assertEq(token.balanceOf(seller), price_ - expectedFee_ - expectedRoyalty_);
+        assertEq(token.balanceOf(buyer), 0);
+        assertEq(token.balanceOf(address(bazaar)), 0);
+        assertEq(royaltyNft.ownerOf(tokenId), buyer);
+    }
+
     // Events
 
     function test_BuyNFT_EmitsNFTSold() public {
@@ -155,6 +203,17 @@ contract NFTBazaarBuyTest is Test {
 
         vm.prank(buyer);
         bazaar.buyNFT{value: PRICE}(address(royaltyNft), tokenId);
+    }
+
+    function test_BuyNFT_Token_EmitsNFTSold() public {
+        _listWithToken(PRICE);
+        _fundBuyer(PRICE);
+
+        vm.expectEmit(true, true, true, true);
+        emit NFTSold(buyer, seller, address(royaltyNft), tokenId, address(token), PRICE);
+
+        vm.prank(buyer);
+        bazaar.buyNFT(address(royaltyNft), tokenId);
     }
 
     // Reverts
@@ -229,7 +288,7 @@ contract NFTBazaarBuyTest is Test {
         vm.warp(endTime_ - 1);
 
         vm.prank(buyer);
-        vm.expectRevert("ERC20 payments not supported yet.");
+        vm.expectRevert("Unexpected ETH.");
         bazaar.buyNFT{value: PRICE}(address(royaltyNft), tokenId);
 
         (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
@@ -297,6 +356,72 @@ contract NFTBazaarBuyTest is Test {
         assertEq(secondBuyer_.balance, PRICE); // the revert returned the sencond buyer's ETH
     }
 
+    // Reverts (token)
+
+    function test_BuyNFT_RevertWhen_EthSentWithTokenListing() public {
+        _listWithToken(PRICE);
+        _fundBuyer(PRICE);
+
+        vm.prank(buyer);
+        vm.expectRevert("Unexpected ETH.");
+        bazaar.buyNFT{value: 1}(address(royaltyNft), tokenId);
+
+        assertEq(address(bazaar).balance, 0);
+        assertEq(token.balanceOf(buyer), PRICE);
+        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        assertEq(listedSeller_, seller);
+    }
+
+    function test_BuyNFT_RevertWhen_PaymentTokenNoLongerAllowed() public {
+        _listWithToken(PRICE);
+        _fundBuyer(PRICE);
+
+        vm.prank(deployer);
+        bazaar.setAllowedToken(address(token), false);
+
+        vm.prank(buyer);
+        vm.expectRevert("Payment token not allowed.");
+        bazaar.buyNFT(address(royaltyNft), tokenId);
+
+        assertEq(royaltyNft.ownerOf(tokenId), seller);
+        assertEq(token.balanceOf(buyer), PRICE);
+        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        assertEq(listedSeller_, seller);
+    }
+
+    function test_BuyNFT_RevertWhen_BuyerHasNotApprovedToken() public {
+        _listWithToken(PRICE);
+        token.mint(buyer, PRICE);
+
+        vm.prank(buyer);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, address(bazaar), 0, 0.925 ether)
+        );
+        bazaar.buyNFT(address(royaltyNft), tokenId);
+
+        assertEq(royaltyNft.ownerOf(tokenId), seller);
+        assertEq(token.balanceOf(buyer), PRICE);
+        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        assertEq(listedSeller_, seller);
+    }
+
+    function test_BuyNFT_RevertWhen_BuyerCannotReceiveNFT_WithToken() public {
+        address badBuyer_ = address(token);
+        _listWithToken(PRICE);
+        _fund(badBuyer_, PRICE);
+
+        vm.prank(badBuyer_);
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721InvalidReceiver.selector, badBuyer_));
+        bazaar.buyNFT(address(royaltyNft), tokenId);
+
+        assertEq(token.balanceOf(badBuyer_), PRICE);
+        assertEq(token.balanceOf(seller), 0);
+        assertEq(token.balanceOf(feeRecipient), 0);
+        assertEq(token.balanceOf(royaltyReceiver), 0);
+        assertEq(royaltyNft.ownerOf(tokenId), seller);
+        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        assertEq(listedSeller_, seller);
+    }
 
     function _listDefault(uint256 endTime_) internal {
         vm.startPrank(seller);
@@ -309,6 +434,26 @@ contract NFTBazaarBuyTest is Test {
         vm.startPrank(seller);
         royaltyNft.approve(address(bazaar), tokenId);
         bazaar.listNFT(address(royaltyNft), tokenId, address(0), price_, endTime_);
+        vm.stopPrank();
+    }
+
+    function _fundBuyer(uint256 amount_) internal {
+        _fund(buyer, amount_);
+    }
+
+    function _fund(address who_, uint256 amount_) internal {
+        token.mint(who_, amount_);
+        vm.prank(who_);
+        token.approve(address(bazaar), amount_);
+    }
+
+    function _listWithToken(uint256 price_) internal {
+        vm.prank(deployer);
+        bazaar.setAllowedToken(address(token), true);
+
+        vm.startPrank(seller);
+        royaltyNft.approve(address(bazaar), tokenId);
+        bazaar.listNFT(address(royaltyNft), tokenId, address(token), price_, 0);
         vm.stopPrank();
     }
 }
