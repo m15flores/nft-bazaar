@@ -2,6 +2,7 @@
 cache/
 out/
 
+
 # Commonly ignored directories
 .logs/
 .ignore/
@@ -18,3 +19,6 @@ docs/
 .env
 .env.*
 !.env.example
+
+#Broadcast
+broadcast/

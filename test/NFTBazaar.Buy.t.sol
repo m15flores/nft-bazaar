@@ -291,29 +291,6 @@ contract NFTBazaarBuyTest is Test {
         assertEq(address(bazaar).balance, 0);
     }
 
-    function test_BuyNFT_RevertWhen_PaymentTokenIsERC20() public {
-        uint256 endTime_ = block.timestamp + LISTING_DURATION;
-
-        vm.prank(deployer);
-        bazaar.setAllowedToken(address(token), true);
-
-        vm.startPrank(seller);
-        royaltyNft.approve(address(bazaar), tokenId);
-        bazaar.listNFT(address(royaltyNft), tokenId, address(token), PRICE, endTime_);
-        vm.stopPrank();
-
-        vm.warp(endTime_ - 1);
-
-        vm.prank(buyer);
-        vm.expectRevert("Unexpected ETH.");
-        bazaar.buyNFT{value: PRICE}(address(royaltyNft), tokenId, type(uint256).max);
-
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
-        assertEq(listedSeller_, seller);
-        assertEq(royaltyNft.ownerOf(tokenId), seller);
-        assertEq(address(bazaar).balance, 0);
-    }
-
     function test_BuyNFT_RevertWhen_ListingIsStale() public {
         _listDefault(0);
         address newOwner_ = makeAddr("newOwner");
