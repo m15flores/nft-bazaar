@@ -125,11 +125,16 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
         emit NFTListingUpdated(msg.sender, nft_, tokenId_, oldPrice_, newPrice_);
     }
 
-    function buyNFT(address nft_, uint256 tokenId_, uint256 maxPrice_) external payable nonReentrant {
+    function buyNFT(address nft_, uint256 tokenId_, uint256 maxPrice_, address expectedToken_)
+        external
+        payable
+        nonReentrant
+    {
         Listing memory listing_ = listing[nft_][tokenId_];
         require(listing_.seller != address(0), "Listing does not exist.");
         require(listing_.endTime == 0 || block.timestamp < listing_.endTime, "Listing expired.");
         require(listing_.startPrice <= maxPrice_, "Price above maximum.");
+        require(listing_.paymentToken == expectedToken_, "Payment token mismatch.");
 
         if (listing_.paymentToken == address(0)) {
             require(msg.value == listing_.startPrice, "Incorrect payment.");

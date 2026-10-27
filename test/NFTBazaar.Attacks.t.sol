@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 contract NFTBazaarAttacksTest is Test {
     NFTBazaar bazaar;
     MockERC721Royalty royaltyNft;
-    MockERC20Blacklist blToken;
+    MockERC20Blacklist blacklistToken;
     address deployer;
     address seller;
     address buyer;
@@ -39,9 +39,9 @@ contract NFTBazaarAttacksTest is Test {
         royaltyNft.setDefaultRoyalty(royaltyReceiver, 500);
         vm.deal(buyer, 100 ether);
 
-        blToken = new MockERC20Blacklist();
+        blacklistToken = new MockERC20Blacklist();
         vm.prank(deployer);
-        bazaar.setAllowedToken(address(blToken), true);
+        bazaar.setAllowedToken(address(blacklistToken), true);
     }
 
     // Reentrancy
@@ -74,7 +74,7 @@ contract NFTBazaarAttacksTest is Test {
 
         _listEth(1);
         vm.prank(buyer);
-        bazaar.buyNFT{value: PRICE}(address(royaltyNft), 1, type(uint256).max);
+        bazaar.buyNFT{value: PRICE}(address(royaltyNft), 1, type(uint256).max, address(0));
 
         vm.expectRevert("Withdraw failed.");
         attacker_.attack();
@@ -89,42 +89,42 @@ contract NFTBazaarAttacksTest is Test {
     // Blacklist
 
     function test_Attack_RevertWhen_RoyaltyReceiverIsBlacklisted() public {
-        _listWithBlToken(1);
+        _listWithBlacklistToken(1);
         _fundBuyerBl();
-        blToken.setBlacklisted(royaltyReceiver, true);
+        blacklistToken.setBlacklisted(royaltyReceiver, true);
 
         vm.prank(buyer);
         vm.expectRevert(abi.encodeWithSelector(MockERC20Blacklist.Blacklisted.selector, royaltyReceiver));
-        bazaar.buyNFT(address(royaltyNft), 1, type(uint256).max);
+        bazaar.buyNFT(address(royaltyNft), 1, type(uint256).max, address(blacklistToken));
 
-        assertEq(blToken.balanceOf(buyer), PRICE);
-        assertEq(blToken.balanceOf(seller), 0);
-        assertEq(blToken.balanceOf(feeRecipient), 0);
+        assertEq(blacklistToken.balanceOf(buyer), PRICE);
+        assertEq(blacklistToken.balanceOf(seller), 0);
+        assertEq(blacklistToken.balanceOf(feeRecipient), 0);
         assertEq(royaltyNft.ownerOf(1), seller);
         (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), 1);
         assertEq(listedSeller_, seller);
     }
 
     function test_Attack_PurchaseSucceeds_AfterOwnerReplacesBlacklistedFeeRecipient() public {
-        _listWithBlToken(1);
+        _listWithBlacklistToken(1);
         _fundBuyerBl();
-        blToken.setBlacklisted(feeRecipient, true);
+        blacklistToken.setBlacklisted(feeRecipient, true);
 
         vm.prank(buyer);
         vm.expectRevert(abi.encodeWithSelector(MockERC20Blacklist.Blacklisted.selector, feeRecipient));
-        bazaar.buyNFT(address(royaltyNft), 1, type(uint256).max);
+        bazaar.buyNFT(address(royaltyNft), 1, type(uint256).max, address(blacklistToken));
 
         address newFeeRecipient_ = makeAddr("newFeeRecipient");
         vm.prank(deployer);
         bazaar.setFeeRecipient(newFeeRecipient_);
 
         vm.prank(buyer);
-        bazaar.buyNFT(address(royaltyNft), 1, type(uint256).max);
+        bazaar.buyNFT(address(royaltyNft), 1, type(uint256).max, address(blacklistToken));
 
         assertEq(royaltyNft.ownerOf(1), buyer);
-        assertEq(blToken.balanceOf(newFeeRecipient_), 0.025 ether);
-        assertEq(blToken.balanceOf(seller), 0.925 ether);
-        assertEq(blToken.balanceOf(royaltyReceiver), 0.05 ether);
+        assertEq(blacklistToken.balanceOf(newFeeRecipient_), 0.025 ether);
+        assertEq(blacklistToken.balanceOf(seller), 0.925 ether);
+        assertEq(blacklistToken.balanceOf(royaltyReceiver), 0.05 ether);
     }
 
     // Relisting of a stale listing
@@ -152,7 +152,7 @@ contract NFTBazaarAttacksTest is Test {
 
         // and the sale pays the new owner
         vm.prank(buyer);
-        bazaar.buyNFT{value: 2 * PRICE}(address(royaltyNft), 1, 2 * PRICE);
+        bazaar.buyNFT{value: 2 * PRICE}(address(royaltyNft), 1, 2 * PRICE, address(0));
 
         assertEq(bazaar.pendingEth(newOwner_), 1.85 ether);
         assertEq(bazaar.pendingEth(seller), 0);
@@ -165,16 +165,16 @@ contract NFTBazaarAttacksTest is Test {
         vm.stopPrank();
     }
 
-    function _listWithBlToken(uint256 id_) internal {
+    function _listWithBlacklistToken(uint256 id_) internal {
         vm.startPrank(seller);
         royaltyNft.approve(address(bazaar), id_);
-        bazaar.listNFT(address(royaltyNft), id_, address(blToken), PRICE, 0);
+        bazaar.listNFT(address(royaltyNft), id_, address(blacklistToken), PRICE, 0);
         vm.stopPrank();
     }
 
     function _fundBuyerBl() internal {
-        blToken.mint(buyer, PRICE);
+        blacklistToken.mint(buyer, PRICE);
         vm.prank(buyer);
-        blToken.approve(address(bazaar), PRICE);
+        blacklistToken.approve(address(bazaar), PRICE);
     }
 }

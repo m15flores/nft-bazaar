@@ -100,7 +100,7 @@ contract NFTBazaarWithdrawTest is Test {
 
         vm.deal(buyer, price_);
         vm.prank(buyer);
-        bazaar.buyNFT{value: price_}(address(royaltyNft), tokenId, type(uint256).max);
+        bazaar.buyNFT{value: price_}(address(royaltyNft), tokenId, type(uint256).max, address(0));
 
         uint256 sellerPending_ = bazaar.pendingEth(seller);
         uint256 feePending_ = bazaar.pendingEth(feeRecipient);
@@ -176,7 +176,7 @@ contract NFTBazaarWithdrawTest is Test {
     function _sellDefault() internal {
         _list(PRICE, 0);
         vm.prank(buyer);
-        bazaar.buyNFT{value: PRICE}(address(royaltyNft), tokenId, type(uint256).max);
+        bazaar.buyNFT{value: PRICE}(address(royaltyNft), tokenId, type(uint256).max, address(0));
     }
 
     function _list(uint256 price_, uint256 endTime_) internal {

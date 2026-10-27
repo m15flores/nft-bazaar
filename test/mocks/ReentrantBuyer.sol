@@ -20,11 +20,11 @@ contract ReentrantBuyer is IERC721Receiver {
     }
 
     function attack() external {
-        bazaar.buyNFT{value: price}(nft, firstId, price);
+        bazaar.buyNFT{value: price}(nft, firstId, price, address(0));
     }
 
     function onERC721Received(address, address, uint256, bytes calldata) external returns (bytes4) {
-        bazaar.buyNFT{value: price}(nft, secondId, price);
+        bazaar.buyNFT{value: price}(nft, secondId, price, address(0));
         return IERC721Receiver.onERC721Received.selector;
     }
 }
