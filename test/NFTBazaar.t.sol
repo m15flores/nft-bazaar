@@ -716,7 +716,7 @@ contract NFTBazaarTest is Test {
         _assertListing(seller, address(0), newPrice_, INITIAL_TIMESTAMP + LISTING_DURATION);
     }
 
-    function test_UpdatePrice_KeepsStartTimeAndEndTime() public {
+    function test_UpdatePrice_KeepsEndTime() public {
         _listDefault();
         uint256 newPrice_ = DEFAULT_PRICE * 2;
 
