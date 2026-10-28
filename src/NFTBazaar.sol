@@ -16,9 +16,7 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
     struct Listing {
         address seller;
         address paymentToken;
-        uint256 startPrice;
-        uint256 endPrice;
-        uint256 startTime;
+        uint256 price;
         uint256 endTime;
     }
 
@@ -91,14 +89,8 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
         require(paymentToken_ == address(0) || allowedToken[paymentToken_], "This payment method is not allowed.");
         require(endTime_ == 0 || endTime_ > block.timestamp, "End time not valid.");
 
-        Listing memory listing_ = Listing({
-            seller: msg.sender,
-            paymentToken: paymentToken_,
-            startPrice: price_,
-            endPrice: price_,
-            startTime: block.timestamp,
-            endTime: endTime_
-        });
+        Listing memory listing_ =
+            Listing({seller: msg.sender, paymentToken: paymentToken_, price: price_, endTime: endTime_});
 
         listing[nft_][tokenId_] = listing_;
 
@@ -117,10 +109,9 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
         Listing storage listing_ = _getSellerListing(nft_, tokenId_);
         require(newPrice_ > 0, "New price cannot be 0.");
 
-        uint256 oldPrice_ = listing_.startPrice;
+        uint256 oldPrice_ = listing_.price;
 
-        listing_.startPrice = newPrice_;
-        listing_.endPrice = newPrice_;
+        listing_.price = newPrice_;
 
         emit NFTListingUpdated(msg.sender, nft_, tokenId_, oldPrice_, newPrice_);
     }
@@ -133,11 +124,11 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
         Listing memory listing_ = listing[nft_][tokenId_];
         require(listing_.seller != address(0), "Listing does not exist.");
         require(listing_.endTime == 0 || block.timestamp < listing_.endTime, "Listing expired.");
-        require(listing_.startPrice <= maxPrice_, "Price above maximum.");
+        require(listing_.price <= maxPrice_, "Price above maximum.");
         require(listing_.paymentToken == expectedToken_, "Payment token mismatch.");
 
         if (listing_.paymentToken == address(0)) {
-            require(msg.value == listing_.startPrice, "Incorrect payment.");
+            require(msg.value == listing_.price, "Incorrect payment.");
         } else {
             require(allowedToken[listing_.paymentToken], "Payment token not allowed.");
             require(msg.value == 0, "Unexpected ETH.");
@@ -145,7 +136,7 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
 
         delete listing[nft_][tokenId_];
 
-        _settle(nft_, tokenId_, listing_.seller, msg.sender, listing_.paymentToken, listing_.startPrice);
+        _settle(nft_, tokenId_, listing_.seller, msg.sender, listing_.paymentToken, listing_.price);
     }
 
     function withdraw() external nonReentrant {

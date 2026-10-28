@@ -61,8 +61,8 @@ contract NFTBazaarAttacksTest is Test {
         assertEq(bazaar.pendingEth(seller), 0);
         assertEq(bazaar.pendingEth(feeRecipient), 0);
         assertEq(bazaar.pendingEth(royaltyReceiver), 0);
-        (address seller1_,,,,,) = bazaar.listing(address(royaltyNft), 1);
-        (address seller2_,,,,,) = bazaar.listing(address(royaltyNft), 2);
+        (address seller1_,,,) = bazaar.listing(address(royaltyNft), 1);
+        (address seller2_,,,) = bazaar.listing(address(royaltyNft), 2);
         assertEq(seller1_, seller);
         assertEq(seller2_, seller);
         assertEq(address(attacker_).balance, 2 * PRICE);
@@ -101,7 +101,7 @@ contract NFTBazaarAttacksTest is Test {
         assertEq(blacklistToken.balanceOf(seller), 0);
         assertEq(blacklistToken.balanceOf(feeRecipient), 0);
         assertEq(royaltyNft.ownerOf(1), seller);
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), 1);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), 1);
         assertEq(listedSeller_, seller);
     }
 
@@ -141,7 +141,7 @@ contract NFTBazaarAttacksTest is Test {
         bazaar.listNFT(address(royaltyNft), 1, address(0), 2 * PRICE, 0);
         vm.stopPrank();
 
-        (address listedSeller_,, uint256 listedPrice_,,,) = bazaar.listing(address(royaltyNft), 1);
+        (address listedSeller_,, uint256 listedPrice_,) = bazaar.listing(address(royaltyNft), 1);
         assertEq(listedSeller_, newOwner_);
         assertEq(listedPrice_, 2 * PRICE);
 

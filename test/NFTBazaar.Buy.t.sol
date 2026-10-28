@@ -80,7 +80,7 @@ contract NFTBazaarBuyTest is Test {
         vm.prank(buyer);
         bazaar.buyNFT{value: PRICE}(address(royaltyNft), tokenId, type(uint256).max, address(0));
 
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, address(0));
     }
 
@@ -147,7 +147,7 @@ contract NFTBazaarBuyTest is Test {
         assertEq(address(bazaar).balance, 0);
         assertEq(bazaar.pendingEth(seller), 0);
         assertEq(royaltyNft.ownerOf(tokenId), buyer);
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, address(0));
     }
 
@@ -244,7 +244,7 @@ contract NFTBazaarBuyTest is Test {
         vm.expectRevert("Listing expired.");
         bazaar.buyNFT{value: PRICE}(address(royaltyNft), tokenId, type(uint256).max, address(0));
 
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, seller);
         assertEq(royaltyNft.ownerOf(tokenId), seller);
         assertEq(address(bazaar).balance, 0);
@@ -255,7 +255,7 @@ contract NFTBazaarBuyTest is Test {
         vm.expectRevert("Listing does not exist.");
         bazaar.buyNFT{value: PRICE}(address(royaltyNft), tokenId, type(uint256).max, address(0));
 
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, address(0));
         assertEq(royaltyNft.ownerOf(tokenId), seller);
         assertEq(address(bazaar).balance, 0);
@@ -270,7 +270,7 @@ contract NFTBazaarBuyTest is Test {
         vm.expectRevert("Incorrect payment.");
         bazaar.buyNFT{value: PRICE - 1}(address(royaltyNft), tokenId, type(uint256).max, address(0));
 
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, seller);
         assertEq(royaltyNft.ownerOf(tokenId), seller);
         assertEq(address(bazaar).balance, 0);
@@ -285,7 +285,7 @@ contract NFTBazaarBuyTest is Test {
         vm.expectRevert("Incorrect payment.");
         bazaar.buyNFT{value: PRICE + 1}(address(royaltyNft), tokenId, type(uint256).max, address(0));
 
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, seller);
         assertEq(royaltyNft.ownerOf(tokenId), seller);
         assertEq(address(bazaar).balance, 0);
@@ -304,7 +304,7 @@ contract NFTBazaarBuyTest is Test {
         );
         bazaar.buyNFT{value: PRICE}(address(royaltyNft), tokenId, type(uint256).max, address(0));
 
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, seller);
         assertEq(bazaar.pendingEth(seller), 0);
         assertEq(royaltyNft.ownerOf(tokenId), newOwner_);
@@ -320,7 +320,7 @@ contract NFTBazaarBuyTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721InvalidReceiver.selector, badBuyer_));
         bazaar.buyNFT{value: PRICE}(address(royaltyNft), tokenId, type(uint256).max, address(0));
 
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, seller);
         assertEq(royaltyNft.ownerOf(tokenId), seller);
         assertEq(address(bazaar).balance, 0);
@@ -371,7 +371,7 @@ contract NFTBazaarBuyTest is Test {
 
         assertEq(address(bazaar).balance, 0);
         assertEq(token.balanceOf(buyer), PRICE);
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, seller);
     }
 
@@ -388,7 +388,7 @@ contract NFTBazaarBuyTest is Test {
 
         assertEq(royaltyNft.ownerOf(tokenId), seller);
         assertEq(token.balanceOf(buyer), PRICE);
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, seller);
     }
 
@@ -404,7 +404,7 @@ contract NFTBazaarBuyTest is Test {
 
         assertEq(royaltyNft.ownerOf(tokenId), seller);
         assertEq(token.balanceOf(buyer), PRICE);
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, seller);
     }
 
@@ -422,7 +422,7 @@ contract NFTBazaarBuyTest is Test {
         assertEq(token.balanceOf(feeRecipient), 0);
         assertEq(token.balanceOf(royaltyReceiver), 0);
         assertEq(royaltyNft.ownerOf(tokenId), seller);
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, seller);
     }
 
@@ -442,7 +442,7 @@ contract NFTBazaarBuyTest is Test {
 
         assertEq(token.balanceOf(buyer), 2 * PRICE);
         assertEq(royaltyNft.ownerOf(tokenId), seller);
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, seller);
     }
 
@@ -470,7 +470,7 @@ contract NFTBazaarBuyTest is Test {
         assertEq(token.balanceOf(buyer), PRICE);
         assertEq(otherToken_.balanceOf(buyer), PRICE);
         assertEq(royaltyNft.ownerOf(tokenId), seller);
-        (address listedSeller_,,,,,) = bazaar.listing(address(royaltyNft), tokenId);
+        (address listedSeller_,,,) = bazaar.listing(address(royaltyNft), tokenId);
         assertEq(listedSeller_, seller);
     }
 

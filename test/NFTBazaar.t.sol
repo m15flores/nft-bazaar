@@ -367,7 +367,7 @@ contract NFTBazaarTest is Test {
         vm.prank(seller);
         bazaar.listNFT(address(nft), tokenId, address(0), DEFAULT_PRICE, endTime_);
 
-        _assertListing(seller, address(0), DEFAULT_PRICE, INITIAL_TIMESTAMP, endTime_);
+        _assertListing(seller, address(0), DEFAULT_PRICE, endTime_);
     }
 
     function test_ListNFT_StoresListing_WithAllowedERC20() public {
@@ -378,7 +378,7 @@ contract NFTBazaarTest is Test {
         vm.prank(seller);
         bazaar.listNFT(address(nft), tokenId, address(token), DEFAULT_PRICE, endTime_);
 
-        (, address paymentToken_,,,,) = bazaar.listing(address(nft), tokenId);
+        (, address paymentToken_,,) = bazaar.listing(address(nft), tokenId);
 
         assertEq(paymentToken_, address(token));
     }
@@ -391,7 +391,7 @@ contract NFTBazaarTest is Test {
         vm.prank(seller);
         bazaar.listNFT(address(nft), tokenId, address(0), DEFAULT_PRICE, endTime_);
 
-        (,,,,, uint256 endTime) = bazaar.listing(address(nft), tokenId);
+        (,,, uint256 endTime) = bazaar.listing(address(nft), tokenId);
 
         assertEq(endTime, endTime_);
     }
@@ -403,7 +403,7 @@ contract NFTBazaarTest is Test {
         vm.prank(seller);
         bazaar.listNFT(address(nft), tokenId, address(0), DEFAULT_PRICE, INITIAL_TIMESTAMP + LISTING_DURATION);
 
-        (address seller_,,,,,) = bazaar.listing(address(nft), tokenId);
+        (address seller_,,,) = bazaar.listing(address(nft), tokenId);
         assertEq(seller_, seller);
     }
 
@@ -431,7 +431,7 @@ contract NFTBazaarTest is Test {
         bazaar.listNFT(address(nft), tokenId, address(token), relistPrice_, newEndTime_);
         vm.stopPrank();
 
-        _assertListing(seller, address(token), relistPrice_, INITIAL_TIMESTAMP + 1 days, newEndTime_);
+        _assertListing(seller, address(token), relistPrice_, newEndTime_);
     }
 
     function test_ListNFT_OverwritesListing_WhenNewOwnerLists() public {
@@ -450,7 +450,7 @@ contract NFTBazaarTest is Test {
         vm.stopPrank();
 
         // 3. The stale listing is still alive
-        _assertListing(seller, address(0), DEFAULT_PRICE, INITIAL_TIMESTAMP, firstEndTime_);
+        _assertListing(seller, address(0), DEFAULT_PRICE, firstEndTime_);
 
         // 4. The new owner approves the bazaar and lists at another price, later in time
         uint256 newStartTime_ = INITIAL_TIMESTAMP + 1 days;
@@ -462,7 +462,7 @@ contract NFTBazaarTest is Test {
         bazaar.listNFT(address(nft), tokenId, address(0), 20, newEndTime_);
 
         // 5. The stale listing was overwritten
-        _assertListing(newOwner_, address(0), 20, newStartTime_, newEndTime_);
+        _assertListing(newOwner_, address(0), 20, newEndTime_);
     }
 
     // Events
@@ -490,7 +490,7 @@ contract NFTBazaarTest is Test {
         vm.prank(seller);
         bazaar.listNFT(address(nft), tokenId, address(0), price_, endTime_);
 
-        _assertListing(seller, address(0), price_, INITIAL_TIMESTAMP, endTime_);
+        _assertListing(seller, address(0), price_, endTime_);
     }
 
     // Reverts
@@ -583,7 +583,7 @@ contract NFTBazaarTest is Test {
     function test_CancelListing_DeletesListing() public {
         uint256 endTime_ = INITIAL_TIMESTAMP + LISTING_DURATION;
         _listDefault();
-        _assertListing(seller, address(0), DEFAULT_PRICE, INITIAL_TIMESTAMP, endTime_);
+        _assertListing(seller, address(0), DEFAULT_PRICE, endTime_);
 
         vm.prank(seller);
         bazaar.cancelListing(address(nft), tokenId);
@@ -594,7 +594,7 @@ contract NFTBazaarTest is Test {
     function test_CancelListing_DeletesListing_WhenListingExpired() public {
         uint256 endTime_ = INITIAL_TIMESTAMP + LISTING_DURATION;
         _listDefault();
-        _assertListing(seller, address(0), DEFAULT_PRICE, INITIAL_TIMESTAMP, endTime_);
+        _assertListing(seller, address(0), DEFAULT_PRICE, endTime_);
 
         vm.warp(endTime_ + 1);
         vm.prank(seller);
@@ -625,14 +625,14 @@ contract NFTBazaarTest is Test {
         _assertNoListing();
 
         // Assert Listing #2 still alive
-        (address seller2_,,,,,) = bazaar.listing(address(nft), token2Id_);
+        (address seller2_,,,) = bazaar.listing(address(nft), token2Id_);
         assertEq(seller2_, seller);
     }
 
     function test_CancelListing_AllowsRelisting() public {
         uint256 endTime_ = INITIAL_TIMESTAMP + LISTING_DURATION;
         _listDefault();
-        _assertListing(seller, address(0), DEFAULT_PRICE, INITIAL_TIMESTAMP, endTime_);
+        _assertListing(seller, address(0), DEFAULT_PRICE, endTime_);
 
         vm.prank(seller);
         bazaar.cancelListing(address(nft), tokenId);
@@ -640,7 +640,7 @@ contract NFTBazaarTest is Test {
         _assertNoListing();
 
         _listDefault();
-        _assertListing(seller, address(0), DEFAULT_PRICE, INITIAL_TIMESTAMP, endTime_);
+        _assertListing(seller, address(0), DEFAULT_PRICE, endTime_);
     }
 
     // Events
@@ -694,7 +694,7 @@ contract NFTBazaarTest is Test {
         assertEq(nft.getApproved(tokenId), address(0));
 
         // 3. The stale listing is still alive
-        _assertListing(seller, address(0), DEFAULT_PRICE, INITIAL_TIMESTAMP, firstEndTime_);
+        _assertListing(seller, address(0), DEFAULT_PRICE, firstEndTime_);
 
         // 4. The new owner cannot cancel it: only the listed seller can
         vm.expectRevert("Not listing's seller.");
@@ -713,7 +713,7 @@ contract NFTBazaarTest is Test {
         vm.prank(seller);
         bazaar.updatePrice(address(nft), tokenId, newPrice_);
 
-        _assertListing(seller, address(0), newPrice_, INITIAL_TIMESTAMP, INITIAL_TIMESTAMP + LISTING_DURATION);
+        _assertListing(seller, address(0), newPrice_, INITIAL_TIMESTAMP + LISTING_DURATION);
     }
 
     function test_UpdatePrice_KeepsStartTimeAndEndTime() public {
@@ -724,7 +724,7 @@ contract NFTBazaarTest is Test {
         vm.prank(seller);
         bazaar.updatePrice(address(nft), tokenId, newPrice_);
 
-        _assertListing(seller, address(0), newPrice_, INITIAL_TIMESTAMP, INITIAL_TIMESTAMP + LISTING_DURATION);
+        _assertListing(seller, address(0), newPrice_, INITIAL_TIMESTAMP + LISTING_DURATION);
     }
 
     function test_UpdatePrice_Succeeds_WhenListingExpired() public {
@@ -735,7 +735,7 @@ contract NFTBazaarTest is Test {
         vm.prank(seller);
         bazaar.updatePrice(address(nft), tokenId, newPrice_);
 
-        _assertListing(seller, address(0), newPrice_, INITIAL_TIMESTAMP, INITIAL_TIMESTAMP + LISTING_DURATION);
+        _assertListing(seller, address(0), newPrice_, INITIAL_TIMESTAMP + LISTING_DURATION);
     }
 
     // Fuzz
@@ -747,7 +747,7 @@ contract NFTBazaarTest is Test {
         vm.prank(seller);
         bazaar.updatePrice(address(nft), tokenId, newPrice_);
 
-        _assertListing(seller, address(0), newPrice_, INITIAL_TIMESTAMP, INITIAL_TIMESTAMP + LISTING_DURATION);
+        _assertListing(seller, address(0), newPrice_, INITIAL_TIMESTAMP + LISTING_DURATION);
     }
 
     // Events
@@ -864,31 +864,17 @@ contract NFTBazaarTest is Test {
     }
 
     function _assertNoListing() internal view {
-        (address seller_,,,,,) = bazaar.listing(address(nft), tokenId);
+        (address seller_,,,) = bazaar.listing(address(nft), tokenId);
         assertEq(seller_, address(0));
     }
 
-    function _assertListing(
-        address seller_,
-        address paymentToken_,
-        uint256 price_,
-        uint256 startTime_,
-        uint256 endTime_
-    ) internal view {
-        (
-            address gotSeller,
-            address gotToken,
-            uint256 gotStartPrice,
-            uint256 gotEndPrice,
-            uint256 gotStartTime,
-            uint256 gotEndTime
-        ) = bazaar.listing(address(nft), tokenId);
+    function _assertListing(address seller_, address paymentToken_, uint256 price_, uint256 endTime_) internal view {
+        (address gotSeller, address gotToken, uint256 gotPrice, uint256 gotEndTime) =
+            bazaar.listing(address(nft), tokenId);
 
         assertEq(gotSeller, seller_);
         assertEq(gotToken, paymentToken_);
-        assertEq(gotStartPrice, price_);
-        assertEq(gotEndPrice, price_);
-        assertEq(gotStartTime, startTime_);
+        assertEq(gotPrice, price_);
         assertEq(gotEndTime, endTime_);
     }
 
