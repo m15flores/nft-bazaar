@@ -149,15 +149,11 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
     }
 
     function withdraw() external nonReentrant {
-        uint256 amount_ = pendingEth[msg.sender];
-        require(amount_ > 0, "Nothing to withdraw.");
+        _withdraw(msg.sender);
+    }
 
-        pendingEth[msg.sender] = 0;
-
-        (bool success,) = msg.sender.call{value: amount_}("");
-        require(success, "Withdraw failed.");
-
-        emit Withdrawn(msg.sender, amount_);
+    function withdrawFor(address account_) external nonReentrant {
+        _withdraw(account_);
     }
 
     function _setFee(uint16 feeBps_) internal {
@@ -172,6 +168,18 @@ contract NFTBazaar is Ownable2Step, ReentrancyGuard {
         feeRecipient = feeRecipient_;
 
         emit FeeRecipientSet(feeRecipient_);
+    }
+
+    function _withdraw(address account_) internal {
+        uint256 amount_ = pendingEth[account_];
+        require(amount_ > 0, "Nothing to withdraw.");
+
+        pendingEth[account_] = 0;
+
+        (bool success,) = account_.call{value: amount_}("");
+        require(success, "Withdraw failed.");
+
+        emit Withdrawn(account_, amount_);
     }
 
     function _getSellerListing(address nft_, uint256 tokenId_) internal view returns (Listing storage listing_) {

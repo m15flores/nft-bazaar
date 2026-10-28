@@ -6,6 +6,7 @@ import "forge-std/Test.sol";
 import "../src/NFTBazaar.sol";
 import "./mocks/MockERC20.sol";
 import "./mocks/MockERC721Royalty.sol";
+import "./mocks/PassiveReceiver.sol";
 import "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 contract NFTBazaarWithdrawTest is Test {
@@ -90,6 +91,27 @@ contract NFTBazaarWithdrawTest is Test {
         assertEq(feeRecipient.balance, 0.025 ether);
         assertEq(royaltyReceiver.balance, 0.05 ether);
         assertEq(address(bazaar).balance, 0);
+    }
+
+    function test_WithdrawFor_PaysAccountNotCaller() public {
+        PassiveReceiver receiver_ = new PassiveReceiver();
+        royaltyNft.setDefaultRoyalty(address(receiver_), 500);
+        _sellDefault();
+
+        address caller_ = makeAddr("caller");
+        uint256 pending_ = bazaar.pendingEth(address(receiver_));
+        assertEq(pending_, 0.05 ether);
+
+        vm.expectEmit(true, false, false, true);
+        emit Withdrawn(address(receiver_), pending_);
+
+        vm.prank(caller_);
+        bazaar.withdrawFor(address(receiver_));
+
+        assertEq(address(receiver_).balance, pending_);
+        assertEq(caller_.balance, 0);
+        assertEq(bazaar.pendingEth(address(receiver_)), 0);
+        assertEq(address(bazaar).balance, PRICE - pending_);
     }
 
     // Fuzz
