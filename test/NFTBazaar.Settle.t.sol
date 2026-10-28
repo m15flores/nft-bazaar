@@ -241,7 +241,7 @@ contract NFTBazaarSettleTest is Test {
         assertEq(_totalPending(), price_);
     }
 
-    function test_Settle_PaysTokenToSellerFreeRecipientAndRoyaltyReceiver() public {
+    function test_Settle_PaysTokenToSellerFeeRecipientAndRoyaltyReceiver() public {
         royaltyNft.setDefaultRoyalty(royaltyReceiver, 500);
         _approveHarness(address(royaltyNft));
         _fundBuyer(1 ether);
@@ -376,7 +376,7 @@ contract NFTBazaarSettleTest is Test {
 
     // Reverts
 
-    function test_Settle_RevertWhen_SelletNotOwner() public {
+    function test_Settle_RevertWhen_SellerNotOwner() public {
         address notOwner_ = makeAddr("notOwner");
         uint256 price_ = 1 ether;
 

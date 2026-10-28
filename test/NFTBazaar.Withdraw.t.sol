@@ -54,7 +54,7 @@ contract NFTBazaarWithdrawTest is Test {
 
     // Positive cases
 
-    function test_Withdraw_TransfersPendingEthCaller() public {
+    function test_Withdraw_TransfersPendingEthToCaller() public {
         _sellDefault();
 
         vm.prank(seller);
@@ -65,7 +65,7 @@ contract NFTBazaarWithdrawTest is Test {
         assertEq(address(bazaar).balance, 0.075 ether);
     }
 
-    function test_Withdraw_DoesnotTouchOtherAccounts() public {
+    function test_Withdraw_DoesNotTouchOtherAccounts() public {
         _sellDefault();
 
         vm.prank(seller);
@@ -75,7 +75,7 @@ contract NFTBazaarWithdrawTest is Test {
         assertEq(bazaar.pendingEth(royaltyReceiver), 0.05 ether);
     }
 
-    function test_Withdraw_LeavesContractEmptyWhenAllTreeWithdraw() public {
+    function test_Withdraw_LeavesContractEmptyWhenAllThreeWithdraw() public {
         _sellDefault();
 
         vm.prank(seller);
@@ -116,7 +116,7 @@ contract NFTBazaarWithdrawTest is Test {
 
     // Fuzz
 
-    function testFuzz_Withdraw_PaysExactyleWhatWasCredited(uint256 price_) public {
+    function testFuzz_Withdraw_PaysExactlyWhatWasCredited(uint256 price_) public {
         price_ = bound(price_, 1, type(uint128).max);
         _list(price_, 0);
 
